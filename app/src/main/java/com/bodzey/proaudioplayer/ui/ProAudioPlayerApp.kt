@@ -57,20 +57,26 @@ fun ProAudioPlayerApp(
         val outputState = outputViewModel.uiState.collectAsStateWithLifecycle()
         val radioState = radioViewModel.uiState.collectAsStateWithLifecycle()
         val alertsState = alertsViewModel.uiState.collectAsStateWithLifecycle()
-        val connected = sessionState.value is com.bodzey.proaudioplayer.core.session.PlayerSessionState.Connected
+        val connectedState = sessionState.value as?
+            com.bodzey.proaudioplayer.core.session.PlayerSessionState.Connected
+        val connected = connectedState != null
+        val audioTopologyRevision = connectedState
+            ?.status
+            ?.audioTopologyRevision
 
         LaunchedEffect(
             section.value,
             selectedDeviceId.value,
             connected,
+            audioTopologyRevision,
         ) {
             when {
                 section.value == AppSection.Player && connected -> {
-                    val connectedState = sessionState.value as?
-                        com.bodzey.proaudioplayer.core.session.PlayerSessionState.Connected
                     if (connectedState != null) {
                         if ("audio_outputs" in connectedState.capabilities.features) {
-                            outputViewModel.ensureLoaded()
+                            outputViewModel.ensureLoaded(
+                                force = audioTopologyRevision != null,
+                            )
                         }
                         if ("audio_mixer" in connectedState.capabilities.features) {
                             mixerViewModel.ensureLoaded()
