@@ -6,6 +6,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bodzey.proaudioplayer.ui.alerts.AlertsViewModel
 import com.bodzey.proaudioplayer.ui.devices.DevicesScreen
 import com.bodzey.proaudioplayer.ui.devices.DevicesViewModel
+import com.bodzey.proaudioplayer.ui.media.MediaViewModel
 import com.bodzey.proaudioplayer.ui.meter.MeterViewModel
 import com.bodzey.proaudioplayer.ui.output.OutputViewModel
 import com.bodzey.proaudioplayer.ui.player.PlayerScreen
@@ -17,6 +18,7 @@ fun ProAudioPlayerApp(
     devicesViewModel: DevicesViewModel,
     playerViewModel: PlayerViewModel,
     meterViewModel: MeterViewModel,
+    mediaViewModel: MediaViewModel,
     outputViewModel: OutputViewModel,
     radioViewModel: RadioViewModel,
     alertsViewModel: AlertsViewModel,
@@ -43,6 +45,7 @@ fun ProAudioPlayerApp(
         val masterMuteBusy = playerViewModel.masterMuteBusy.collectAsStateWithLifecycle()
         val masterVolumeOverride =
             playerViewModel.masterVolumeOverride.collectAsStateWithLifecycle()
+        val mediaState = mediaViewModel.uiState.collectAsStateWithLifecycle()
         val outputState = outputViewModel.uiState.collectAsStateWithLifecycle()
         val radioState = radioViewModel.uiState.collectAsStateWithLifecycle()
         val alertsState = alertsViewModel.uiState.collectAsStateWithLifecycle()
@@ -63,6 +66,8 @@ fun ProAudioPlayerApp(
                         outputViewModel.ensureLoaded()
                     }
                 }
+                section.value == AppSection.Media && connected ->
+                    mediaViewModel.ensureLoaded()
                 section.value == AppSection.Radio && connected ->
                     radioViewModel.ensureLoaded()
                 section.value == AppSection.Alerts && connected ->
@@ -81,12 +86,21 @@ fun ProAudioPlayerApp(
             alertsState = alertsState.value,
             meterState = meterViewModel.state,
             outputState = outputState.value,
+            mediaState = mediaState.value,
             onSectionSelected = playerViewModel::selectSection,
             onAction = playerViewModel::performAction,
             onMasterVolumeChange = playerViewModel::setMasterVolume,
             onMasterMuteChange = playerViewModel::setMasterMuted,
             onOutputRefresh = outputViewModel::refresh,
             onOutputSelect = outputViewModel::select,
+            onMediaRefresh = mediaViewModel::refresh,
+            onMediaRefreshLibrary = mediaViewModel::refreshLibrary,
+            onMediaLibraryQueryChange = mediaViewModel::setLibraryQuery,
+            onMediaPlayLibraryPath = mediaViewModel::playLibraryPath,
+            onMediaLoadPlaylist = mediaViewModel::loadPlaylist,
+            onMediaPlayQueueItem = mediaViewModel::playQueueItem,
+            onMediaRemoveQueueItem = mediaViewModel::removeQueueItem,
+            onMediaClearQueue = mediaViewModel::clearQueue,
             onRadioRefresh = radioViewModel::refresh,
             onRadioStationToggle = radioViewModel::toggleStation,
             onRadioCustomUrlChange = radioViewModel::setCustomUrl,
