@@ -22,14 +22,20 @@ class PlayerViewModel(
     private val _pendingAction = MutableStateFlow<PlayerAction?>(null)
     val pendingAction: StateFlow<PlayerAction?> = _pendingAction.asStateFlow()
 
+    private val _actionError = MutableStateFlow<String?>(null)
+    val actionError: StateFlow<String?> = _actionError.asStateFlow()
+
     fun performAction(action: PlayerAction) {
         if (_pendingAction.value != null) {
             return
         }
         viewModelScope.launch {
             _pendingAction.value = action
+            _actionError.value = null
             try {
                 sessionRepository.performAction(action)
+            } catch (error: Exception) {
+                _actionError.value = error.message ?: "Не вдалося виконати команду"
             } finally {
                 _pendingAction.value = null
             }
@@ -37,6 +43,7 @@ class PlayerViewModel(
     }
 
     fun close() {
+        _actionError.value = null
         sessionRepository.clearSelection()
     }
 
