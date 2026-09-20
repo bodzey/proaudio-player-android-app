@@ -52,6 +52,29 @@ class OkHttpPlayerApiClient(
         )
     }
 
+    override suspend fun setMasterVolume(
+        endpoint: DeviceEndpoint,
+        percent: Double,
+    ) {
+        postJson(
+            endpoint = endpoint,
+            path = "/api/v1/audio/level",
+            json = """{"target":"master","percent":$percent}""",
+        )
+    }
+
+    override suspend fun setMasterMute(
+        endpoint: DeviceEndpoint,
+        db: Double,
+        muted: Boolean,
+    ) {
+        postJson(
+            endpoint = endpoint,
+            path = "/api/v1/audio/mixer",
+            json = """{"target":"master","db":$db,"muted":$muted}""",
+        )
+    }
+
     override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> = channelFlow {
         val request = Request.Builder()
             .url(endpoint.apiUrl("/api/v1/events"))
