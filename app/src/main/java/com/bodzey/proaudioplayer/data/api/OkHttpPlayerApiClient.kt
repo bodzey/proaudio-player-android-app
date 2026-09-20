@@ -2,6 +2,7 @@ package com.bodzey.proaudioplayer.data.api
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
+import com.bodzey.proaudioplayer.core.api.AudioOutputDescriptor
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
 import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
 import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
@@ -13,6 +14,7 @@ import com.bodzey.proaudioplayer.core.api.MeterFrame
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
+import com.bodzey.proaudioplayer.core.api.QueueItem
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import java.io.IOException
@@ -118,6 +120,102 @@ class OkHttpPlayerApiClient(
             endpoint = endpoint,
             path = "/api/v1/streams/play",
             jsonBody = """{"url":$encodedUrl}""",
+        )
+    }
+
+    override suspend fun audioOutputs(
+        endpoint: DeviceEndpoint,
+    ): List<AudioOutputDescriptor> =
+        parser.audioOutputs(get(endpoint, "/api/v1/audio/outputs"))
+
+    override suspend fun selectAudioOutput(
+        endpoint: DeviceEndpoint,
+        id: String,
+    ): AudioOutputDescriptor {
+        val encodedId = JsonPrimitive(id).toString()
+        return parser.selectedAudioOutput(
+            postJsonForBody(
+                endpoint = endpoint,
+                path = "/api/v1/audio/outputs",
+                jsonBody = """{"id":$encodedId}""",
+            ),
+        )
+    }
+
+    override suspend fun library(
+        endpoint: DeviceEndpoint,
+    ): List<String> =
+        parser.stringItems(get(endpoint, "/api/v1/library"))
+
+    override suspend fun refreshLibrary(endpoint: DeviceEndpoint) {
+        postJson(
+            endpoint = endpoint,
+            path = "/api/v1/library/update",
+            jsonBody = "{}",
+        )
+    }
+
+    override suspend fun playLibraryPath(
+        endpoint: DeviceEndpoint,
+        path: String,
+    ) {
+        val encodedPath = JsonPrimitive(path).toString()
+        postJson(
+            endpoint = endpoint,
+            path = "/api/v1/library/play",
+            jsonBody = """{"path":$encodedPath}""",
+        )
+    }
+
+    override suspend fun playlists(
+        endpoint: DeviceEndpoint,
+    ): List<String> =
+        parser.stringItems(get(endpoint, "/api/v1/playlists"))
+
+    override suspend fun loadPlaylist(
+        endpoint: DeviceEndpoint,
+        name: String,
+    ) {
+        val encodedName = JsonPrimitive(name).toString()
+        postJson(
+            endpoint = endpoint,
+            path = "/api/v1/playlists/load",
+            jsonBody = """{"name":$encodedName}""",
+        )
+    }
+
+    override suspend fun queue(
+        endpoint: DeviceEndpoint,
+    ): List<QueueItem> =
+        parser.queueItems(get(endpoint, "/api/v1/queue"))
+
+    override suspend fun playQueueItem(
+        endpoint: DeviceEndpoint,
+        position: Int,
+    ) {
+        postJson(
+            endpoint = endpoint,
+            path = "/api/v1/queue/play",
+            jsonBody = """{"position":$position}""",
+        )
+    }
+
+    override suspend fun removeQueueItem(
+        endpoint: DeviceEndpoint,
+        position: Int,
+    ) {
+        postJson(
+            endpoint = endpoint,
+            path = "/api/v1/queue/remove",
+            jsonBody = """{"position":$position}""",
+        )
+    }
+
+    override suspend fun clearQueue(endpoint: DeviceEndpoint) {
+        postJson(
+            endpoint = endpoint,
+            path = "/api/v1/queue/clear",
+            jsonBody = "{}",
         )
     }
 
