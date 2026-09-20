@@ -24,7 +24,6 @@ class MainActivity : ComponentActivity() {
                 factory = DevicesViewModel.factory(
                     deviceRepository = container.deviceRepository,
                     demoDiscoveryController = container.demoDiscoveryController,
-                    sessionRepository = container.playerSessionRepository,
                 ),
             )
             val playerViewModel: PlayerViewModel = viewModel(
