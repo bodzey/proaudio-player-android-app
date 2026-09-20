@@ -9,6 +9,7 @@ import com.bodzey.proaudioplayer.core.api.AlertMediaFile
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
+import com.bodzey.proaudioplayer.core.api.MeterFrame
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
@@ -202,9 +203,34 @@ class OkHttpPlayerApiClient(
         return parser.alertMediaFile(executeForBody(mediaClient, request))
     }
 
-    override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> = channelFlow {
+    override fun statusEvents(
+        endpoint: DeviceEndpoint,
+    ): Flow<PlayerStatus> =
+        sseEvents(
+            endpoint = endpoint,
+            path = "/api/v1/events",
+            eventName = "status",
+            parse = parser::status,
+        )
+
+    override fun meterEvents(
+        endpoint: DeviceEndpoint,
+    ): Flow<MeterFrame> =
+        sseEvents(
+            endpoint = endpoint,
+            path = "/api/v1/meters",
+            eventName = "meter",
+            parse = parser::meterFrame,
+        )
+
+    private fun <T> sseEvents(
+        endpoint: DeviceEndpoint,
+        path: String,
+        eventName: String,
+        parse: (String) -> T,
+    ): Flow<T> = channelFlow {
         val request = Request.Builder()
-            .url(endpoint.apiUrl("/api/v1/events"))
+            .url(endpoint.apiUrl(path))
             .header("Accept", "text/event-stream")
             .header("Cache-Control", "no-cache")
             .build()
@@ -216,19 +242,22 @@ class OkHttpPlayerApiClient(
                     if (!response.isSuccessful) {
                         throw PlayerApiException(
                             statusCode = response.code,
-                            message = "Player event stream returned HTTP " + response.code,
+                            message = apiErrorMessage(
+                                statusCode = response.code,
+                                body = response.body.string(),
+                            ),
                         )
                     }
 
                     val source = response.body.source()
-                    var eventType: String? = null
+                    var currentEvent: String? = null
                     val dataLines = mutableListOf<String>()
 
                     suspend fun dispatchEvent() {
-                        if (eventType == "status" && dataLines.isNotEmpty()) {
-                            send(parser.status(dataLines.joinToString("\n")))
+                        if (currentEvent == eventName && dataLines.isNotEmpty()) {
+                            send(parse(dataLines.joinToString("\n")))
                         }
-                        eventType = null
+                        currentEvent = null
                         dataLines.clear()
                     }
 
@@ -238,7 +267,7 @@ class OkHttpPlayerApiClient(
                             line.isEmpty() -> dispatchEvent()
                             line.startsWith(":") -> Unit
                             line.startsWith("event:") ->
-                                eventType = line.substringAfter(':').trimStart()
+                                currentEvent = line.substringAfter(':').trimStart()
                             line.startsWith("data:") ->
                                 dataLines += line.substringAfter(':').trimStart()
                         }
