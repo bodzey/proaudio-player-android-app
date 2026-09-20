@@ -6,6 +6,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bodzey.proaudioplayer.ui.alerts.AlertsViewModel
 import com.bodzey.proaudioplayer.ui.devices.DevicesScreen
 import com.bodzey.proaudioplayer.ui.devices.DevicesViewModel
+import com.bodzey.proaudioplayer.ui.meter.MeterViewModel
 import com.bodzey.proaudioplayer.ui.player.PlayerScreen
 import com.bodzey.proaudioplayer.ui.player.PlayerViewModel
 import com.bodzey.proaudioplayer.ui.radio.RadioViewModel
@@ -14,6 +15,7 @@ import com.bodzey.proaudioplayer.ui.radio.RadioViewModel
 fun ProAudioPlayerApp(
     devicesViewModel: DevicesViewModel,
     playerViewModel: PlayerViewModel,
+    meterViewModel: MeterViewModel,
     radioViewModel: RadioViewModel,
     alertsViewModel: AlertsViewModel,
     showDemoControls: Boolean,
@@ -65,6 +67,7 @@ fun ProAudioPlayerApp(
             actionError = actionError.value,
             radioState = radioState.value,
             alertsState = alertsState.value,
+            meterState = meterViewModel.state,
             onSectionSelected = playerViewModel::selectSection,
             onAction = playerViewModel::performAction,
             onMasterVolumeChange = playerViewModel::setMasterVolume,
