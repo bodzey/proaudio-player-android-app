@@ -1,31 +1,55 @@
 package com.bodzey.proaudioplayer.ui.player
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import java.util.Locale
 import com.bodzey.proaudioplayer.R
-import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
+import com.bodzey.proaudioplayer.core.api.PlayerControls
+import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
+import com.bodzey.proaudioplayer.ui.components.ProAudioHeader
+import com.bodzey.proaudioplayer.ui.components.ProAudioPanel
+import com.bodzey.proaudioplayer.ui.components.ProAudioShell
+import com.bodzey.proaudioplayer.ui.components.SectionLabel
+import com.bodzey.proaudioplayer.ui.components.StatusBadge
+import com.bodzey.proaudioplayer.ui.components.StatusBadgeState
+import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
+import java.util.Locale
 
 @Composable
 fun PlayerScreen(
@@ -33,41 +57,72 @@ fun PlayerScreen(
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
+    val colors = LocalProAudioColors.current
 
-    Scaffold { contentPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding)
-                .padding(horizontal = 20.dp),
+    ProAudioShell {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                top = 2.dp,
+                end = 16.dp,
+                bottom = 28.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = onBack) {
-                    Text(stringResource(R.string.back))
+            item {
+                ProAudioHeader(
+                    trailing = {
+                        when (state) {
+                            is PlayerSessionState.Connected -> StatusBadge(
+                                text = stringResource(R.string.player_connected),
+                                state = StatusBadgeState.Online,
+                            )
+                            is PlayerSessionState.Connecting -> StatusBadge(
+                                text = stringResource(R.string.player_connecting_short),
+                                state = StatusBadgeState.Connecting,
+                            )
+                            is PlayerSessionState.Offline,
+                            is PlayerSessionState.Failed -> StatusBadge(
+                                text = stringResource(R.string.player_offline),
+                                state = StatusBadgeState.Offline,
+                            )
+                            PlayerSessionState.NoSelection -> Unit
+                        }
+                    },
+                )
+            }
+
+            item {
+                Surface(
+                    onClick = onBack,
+                    shape = RoundedCornerShape(9.dp),
+                    color = colors.surfaceRaised.copy(alpha = 0.9f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
+                ) {
+                    Text(
+                        text = "‹  " + stringResource(R.string.back_to_players),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = colors.textSoft,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
                 }
             }
 
-            when (state) {
-                PlayerSessionState.NoSelection -> Unit
-
-                is PlayerSessionState.Connecting -> ConnectingState(state)
-
-                is PlayerSessionState.Connected -> ConnectedState(state)
-
-                is PlayerSessionState.Offline -> MessageState(
-                    title = stringResource(R.string.player_offline),
-                    message = stringResource(R.string.player_offline_support),
-                )
-
-                is PlayerSessionState.Failed -> MessageState(
-                    title = state.displayName,
-                    message = state.message,
-                )
+            item {
+                when (state) {
+                    PlayerSessionState.NoSelection -> Unit
+                    is PlayerSessionState.Connecting -> ConnectingState(state)
+                    is PlayerSessionState.Connected -> ConnectedState(state)
+                    is PlayerSessionState.Offline -> MessageState(
+                        title = stringResource(R.string.player_offline),
+                        message = stringResource(R.string.player_offline_support),
+                    )
+                    is PlayerSessionState.Failed -> MessageState(
+                        title = state.displayName,
+                        message = state.message,
+                    )
+                }
             }
         }
     }
@@ -77,22 +132,30 @@ fun PlayerScreen(
 private fun ConnectingState(
     state: PlayerSessionState.Connecting,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        CircularProgressIndicator()
-        Text(
-            text = state.displayName,
-            style = MaterialTheme.typography.titleLarge,
-        )
-        Text(
-            text = stringResource(R.string.player_connecting),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    val colors = LocalProAudioColors.current
+
+    ProAudioPanel(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 40.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(30.dp),
+                color = colors.accent,
+                strokeWidth = 2.dp,
+            )
+            Text(
+                text = state.displayName,
+                color = colors.text,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Text(
+                text = stringResource(R.string.player_connecting),
+                color = colors.textMuted,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
 
@@ -100,91 +163,445 @@ private fun ConnectingState(
 private fun ConnectedState(
     state: PlayerSessionState.Connected,
 ) {
+    val colors = LocalProAudioColors.current
     val player = state.status.player
 
-    Text(
-        text = state.displayName,
-        style = MaterialTheme.typography.headlineMedium,
-    )
-    Spacer(modifier = Modifier.height(4.dp))
-    Text(
-        text = stringResource(R.string.player_connected),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.primary,
-    )
-
-    Spacer(modifier = Modifier.height(20.dp))
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ProAudioPanel(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column {
+                PlayerArtwork(
+                    source = player.source,
+                )
+                PlayerMeta(
+                    player = player,
+                )
+            }
+        }
+
+        ProAudioPanel(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column {
+                        SectionLabel(text = stringResource(R.string.master_output))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.player_volume),
+                            color = colors.text,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    Text(
+                        text = if (state.status.master.muted) {
+                            stringResource(R.string.player_muted)
+                        } else {
+                            formatVolume(state.status.master.volumePercent)
+                        },
+                        color = if (state.status.master.muted) colors.danger else colors.text,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+
+                VolumeRail(
+                    percent = state.status.master.volumePercent.toFloat(),
+                    muted = state.status.master.muted,
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = player.title.ifBlank { player.source },
-                style = MaterialTheme.typography.titleLarge,
+                text = state.endpoint.host.let {
+                    if (':' in it) "IPv6" else "IPv4"
+                } + " · API v" + state.capabilities.apiMajorVersion,
+                color = colors.textMuted,
+                style = MaterialTheme.typography.labelLarge,
+                fontFamily = FontFamily.Monospace,
             )
-            if (player.artist.isNotBlank()) {
+            state.capabilities.eventTransport?.let {
                 Text(
-                    text = player.artist,
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = it.uppercase(),
+                    color = colors.textMuted,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontFamily = FontFamily.Monospace,
                 )
             }
-            if (player.album.isNotBlank()) {
-                Text(
-                    text = player.album,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        }
+    }
+}
 
-            HorizontalDivider()
+@Composable
+private fun PlayerArtwork(
+    source: String,
+) {
+    val colors = LocalProAudioColors.current
 
-            StatusRow(
-                label = stringResource(R.string.player_source),
-                value = player.source,
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        Color(0xFF111722),
+                        Color(0xFF080B10),
+                    ),
+                ),
+            ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            colors.blueAccent.copy(alpha = 0.18f),
+                            Color.Transparent,
+                        ),
+                        center = Offset(160f, 90f),
+                        radius = 500f,
+                    ),
+                ),
+        )
+
+        Surface(
+            modifier = Modifier.align(Alignment.Center),
+            shape = RoundedCornerShape(26.dp),
+            color = Color.White.copy(alpha = 0.035f),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                Color.White.copy(alpha = 0.10f),
+            ),
+        ) {
+            Text(
+                text = "♪",
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp),
+                color = colors.textMuted,
+                style = MaterialTheme.typography.headlineLarge,
+                fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
             )
-            StatusRow(
-                label = stringResource(R.string.player_state),
-                value = player.state,
-            )
-            StatusRow(
-                label = stringResource(R.string.player_volume),
-                value = if (state.status.master.muted) {
-                    stringResource(R.string.player_muted)
-                } else {
-                    formatVolume(state.status.master.volumePercent)
-                },
+        }
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(14.dp),
+            shape = RoundedCornerShape(9.dp),
+            color = Color.Black.copy(alpha = 0.48f),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                Color.White.copy(alpha = 0.10f),
+            ),
+        ) {
+            Text(
+                text = source.ifBlank { stringResource(R.string.player_no_source) },
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                color = Color.White.copy(alpha = 0.82f),
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
+}
 
-    Spacer(modifier = Modifier.height(12.dp))
+@Composable
+private fun PlayerMeta(
+    player: PlayerState,
+) {
+    val colors = LocalProAudioColors.current
+    val progress by animateFloatAsState(
+        targetValue = player.progressPercent.coerceIn(0, 100).toFloat(),
+        label = "playerProgress",
+    )
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
+    Column(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        SectionLabel(
+            text = stringResource(R.string.now_playing).uppercase(),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = player.title.ifBlank { stringResource(R.string.no_active_stream) },
+            color = colors.text,
+            style = MaterialTheme.typography.headlineMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        Spacer(modifier = Modifier.height(5.dp))
+
+        Text(
+            text = player.artist
+                .ifBlank { player.album }
+                .ifBlank { "ProAudio Player" },
+            color = colors.textSoft,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        PlayerProgress(
+            progress = progress,
+            positionSeconds = player.positionSeconds,
+            durationSeconds = player.durationSeconds,
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        TransportControls(
+            state = player.state,
+            controls = player.controls,
+        )
+    }
+}
+
+@Composable
+private fun PlayerProgress(
+    progress: Float,
+    positionSeconds: Double?,
+    durationSeconds: Double?,
+) {
+    val colors = LocalProAudioColors.current
+
+    Column {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(7.dp)
+                .background(colors.surfaceInset, CircleShape),
         ) {
-            StatusRow(
-                label = stringResource(R.string.player_endpoint),
-                value = state.endpoint.displayValue(),
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress / 100f)
+                    .height(7.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(Color(0xFFFF7B4A), colors.accentStrong),
+                        ),
+                        CircleShape,
+                    ),
             )
-            StatusRow(
-                label = stringResource(R.string.player_api),
-                value = "v" + state.capabilities.apiMajorVersion,
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = formatClock(positionSeconds),
+                color = colors.textMuted,
+                style = MaterialTheme.typography.labelLarge,
+                fontFamily = FontFamily.Monospace,
             )
-            state.capabilities.eventTransport?.let { transport ->
-                StatusRow(
-                    label = stringResource(R.string.player_events),
-                    value = transport.uppercase(),
+            Text(
+                text = formatClock(durationSeconds),
+                color = colors.textMuted,
+                style = MaterialTheme.typography.labelLarge,
+                fontFamily = FontFamily.Monospace,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TransportControls(
+    state: String,
+    controls: PlayerControls,
+) {
+    val playing = state == "playing"
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TransportButton(
+            type = TransportIcon.Previous,
+            enabled = controls.previous,
+        )
+        Spacer(modifier = Modifier.size(10.dp))
+        TransportButton(
+            type = TransportIcon.Stop,
+            enabled = controls.stop,
+        )
+        Spacer(modifier = Modifier.size(10.dp))
+        TransportButton(
+            type = if (playing) TransportIcon.Pause else TransportIcon.Play,
+            enabled = if (playing) controls.pause else controls.play,
+            primary = true,
+        )
+        Spacer(modifier = Modifier.size(10.dp))
+        TransportButton(
+            type = TransportIcon.Next,
+            enabled = controls.next,
+        )
+    }
+}
+
+@Composable
+private fun TransportButton(
+    type: TransportIcon,
+    enabled: Boolean,
+    primary: Boolean = false,
+) {
+    val colors = LocalProAudioColors.current
+    val size = if (primary) 62.dp else 46.dp
+    val background = if (primary) {
+        Brush.linearGradient(listOf(Color(0xFFFF7843), colors.accentStrong))
+    } else {
+        Brush.linearGradient(listOf(colors.surfaceRaised, colors.surfaceRaised))
+    }
+
+    Box(
+        modifier = Modifier
+            .size(size)
+            .background(background, RoundedCornerShape(if (primary) 14.dp else 12.dp))
+            .then(
+                Modifier.background(
+                    if (enabled) Color.Transparent else colors.canvas.copy(alpha = 0.45f),
+                    RoundedCornerShape(if (primary) 14.dp else 12.dp),
+                ),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        TransportGlyph(
+            type = type,
+            color = if (primary) Color.White else colors.textSoft,
+            modifier = Modifier.size(if (primary) 28.dp else 21.dp),
+        )
+    }
+}
+
+private enum class TransportIcon {
+    Previous,
+    Stop,
+    Play,
+    Pause,
+    Next,
+}
+
+@Composable
+private fun TransportGlyph(
+    type: TransportIcon,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val stroke = 1.8.dp.toPx()
+        when (type) {
+            TransportIcon.Play -> {
+                val path = Path().apply {
+                    moveTo(size.width * 0.34f, size.height * 0.22f)
+                    lineTo(size.width * 0.76f, size.height * 0.50f)
+                    lineTo(size.width * 0.34f, size.height * 0.78f)
+                    close()
+                }
+                drawPath(path, color)
+            }
+            TransportIcon.Pause -> {
+                drawRect(
+                    color,
+                    topLeft = Offset(size.width * 0.28f, size.height * 0.22f),
+                    size = Size(size.width * 0.14f, size.height * 0.56f),
+                )
+                drawRect(
+                    color,
+                    topLeft = Offset(size.width * 0.58f, size.height * 0.22f),
+                    size = Size(size.width * 0.14f, size.height * 0.56f),
                 )
             }
+            TransportIcon.Stop -> {
+                drawRect(
+                    color,
+                    topLeft = Offset(size.width * 0.28f, size.height * 0.28f),
+                    size = Size(size.width * 0.44f, size.height * 0.44f),
+                    style = Stroke(stroke),
+                )
+            }
+            TransportIcon.Previous,
+            TransportIcon.Next -> {
+                val reverse = type == TransportIcon.Previous
+                val barX = if (reverse) size.width * 0.25f else size.width * 0.75f
+                drawLine(
+                    color,
+                    start = Offset(barX, size.height * 0.22f),
+                    end = Offset(barX, size.height * 0.78f),
+                    strokeWidth = stroke,
+                )
+                val path = Path()
+                if (reverse) {
+                    path.moveTo(size.width * 0.70f, size.height * 0.25f)
+                    path.lineTo(size.width * 0.36f, size.height * 0.50f)
+                    path.lineTo(size.width * 0.70f, size.height * 0.75f)
+                } else {
+                    path.moveTo(size.width * 0.30f, size.height * 0.25f)
+                    path.lineTo(size.width * 0.64f, size.height * 0.50f)
+                    path.lineTo(size.width * 0.30f, size.height * 0.75f)
+                }
+                path.close()
+                drawPath(path, color)
+            }
         }
+    }
+}
+
+@Composable
+private fun VolumeRail(
+    percent: Float,
+    muted: Boolean,
+) {
+    val colors = LocalProAudioColors.current
+    val normalized = (percent / 100f).coerceIn(0f, 1f)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(18.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(colors.surfaceInset, CircleShape),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(if (muted) 0f else normalized)
+                .height(4.dp)
+                .background(
+                    if (muted) colors.danger else colors.blueAccent,
+                    CircleShape,
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .padding(start = ((normalized * 300f).coerceAtMost(300f)).dp)
+                .size(14.dp)
+                .background(colors.text, CircleShape),
+        )
     }
 }
 
@@ -193,49 +610,35 @@ private fun MessageState(
     title: String,
     message: String,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-        )
-        Text(
-            text = message,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    val colors = LocalProAudioColors.current
+    ProAudioPanel(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = title,
+                color = colors.text,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Text(
+                text = message,
+                color = colors.textMuted,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
-}
-
-@Composable
-private fun StatusRow(
-    label: String,
-    value: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(end = 16.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.End,
-        )
-    }
-}
-
-private fun DeviceEndpoint.displayValue(): String {
-    val formattedHost = if (':' in host) "[" + host + "]" else host
-    return formattedHost + ":" + port
 }
 
 private fun formatVolume(percent: Double): String =
     String.format(Locale.ROOT, "%.1f%%", percent)
+
+private fun formatClock(seconds: Double?): String {
+    if (seconds == null || !seconds.isFinite() || seconds < 0) {
+        return "—:—"
+    }
+    val total = seconds.toInt()
+    val minutes = total / 60
+    val remainder = total % 60
+    return String.format(Locale.ROOT, "%d:%02d", minutes, remainder)
+}
