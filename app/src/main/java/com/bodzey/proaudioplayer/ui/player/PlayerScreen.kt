@@ -52,6 +52,8 @@ import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.AppSection
+import com.bodzey.proaudioplayer.ui.alerts.AlertsUiState
+import com.bodzey.proaudioplayer.ui.alerts.alertsSection
 import com.bodzey.proaudioplayer.ui.components.PrimaryNavigation
 import com.bodzey.proaudioplayer.ui.components.ProAudioHeader
 import com.bodzey.proaudioplayer.ui.components.ProAudioPanel
@@ -73,6 +75,7 @@ fun PlayerScreen(
     masterVolumeOverride: Double?,
     actionError: String?,
     radioState: RadioUiState,
+    alertsState: AlertsUiState,
     onSectionSelected: (AppSection) -> Unit,
     onAction: (PlayerAction) -> Unit,
     onMasterVolumeChange: (Double) -> Unit,
@@ -81,6 +84,7 @@ fun PlayerScreen(
     onRadioStationToggle: (RadioStation) -> Unit,
     onRadioCustomUrlChange: (String) -> Unit,
     onRadioPlayCustom: () -> Unit,
+    onAlertsRefresh: () -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -176,6 +180,14 @@ fun PlayerScreen(
                         onStationToggle = onRadioStationToggle,
                         onCustomUrlChange = onRadioCustomUrlChange,
                         onPlayCustom = onRadioPlayCustom,
+                    )
+                }
+
+                state is PlayerSessionState.Connected && section == AppSection.Alerts -> {
+                    alertsSection(
+                        state = alertsState,
+                        connected = state,
+                        onRefresh = onAlertsRefresh,
                     )
                 }
 
