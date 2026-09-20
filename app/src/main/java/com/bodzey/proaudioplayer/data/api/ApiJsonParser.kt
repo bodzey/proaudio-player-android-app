@@ -175,14 +175,14 @@ internal class ApiJsonParser(
         this[key]?.jsonPrimitive?.booleanOrNull
             ?: throw ApiProtocolException("Missing or invalid '" + key + "'")
 
-    private fun JsonObject.optionalDouble(key: String): Double? =
-        this[key]?.jsonPrimitive?.doubleOrNull
+    private fun JsonObject?.optionalDouble(key: String): Double? =
+        this?.get(key)?.jsonPrimitive?.doubleOrNull
 
-    private fun JsonObject.optionalBoolean(key: String): Boolean? =
-        this[key]?.jsonPrimitive?.booleanOrNull
+    private fun JsonObject?.optionalBoolean(key: String): Boolean? =
+        this?.get(key)?.jsonPrimitive?.booleanOrNull
 
-    private fun JsonObject.optionalString(key: String): String? =
-        this[key]?.jsonPrimitive?.contentOrNull
+    private fun JsonObject?.optionalString(key: String): String? =
+        this?.get(key)?.jsonPrimitive?.contentOrNull
 
     private fun JsonObject.stringOrEmpty(key: String): String =
         optionalString(key).orEmpty()
