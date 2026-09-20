@@ -11,6 +11,7 @@ import com.bodzey.proaudioplayer.core.discovery.nsd.AndroidNsdDiscoverySource
 import com.bodzey.proaudioplayer.core.session.EndpointResolver
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import com.bodzey.proaudioplayer.data.api.OkHttpPlayerApiClient
+import com.bodzey.proaudioplayer.data.media.AndroidAlertMediaImporter
 import com.bodzey.proaudioplayer.debug.createDevelopmentDiscoverySource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +51,7 @@ class AppContainer(
     )
 
     private val apiClient = OkHttpPlayerApiClient()
+    val alertMediaImporter = AndroidAlertMediaImporter(context)
     private val endpointResolver = EndpointResolver(apiClient)
 
     val playerSessionRepository = PlayerSessionRepository(
