@@ -42,6 +42,7 @@ class RadioViewModel(
             loading = true,
             loadError = null,
             customUrl = preservedCustomUrl,
+            pendingUrl = null,
             feedback = null,
         )
 
