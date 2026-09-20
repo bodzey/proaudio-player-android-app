@@ -5,7 +5,14 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
+import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
+import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
+import com.bodzey.proaudioplayer.core.api.AlertMediaFile
+import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
+import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
+import com.bodzey.proaudioplayer.data.media.AndroidAlertMediaImporter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +23,7 @@ import kotlinx.coroutines.supervisorScope
 
 class AlertsViewModel(
     private val sessionRepository: PlayerSessionRepository,
+    private val mediaImporter: AndroidAlertMediaImporter,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AlertsUiState())
@@ -36,14 +44,17 @@ class AlertsViewModel(
         }
 
         val sameDevice = current.deviceId == deviceId
-        _uiState.value = current.copy(
-            deviceId = deviceId,
-            loading = true,
-            provider = if (sameDevice) current.provider else null,
-            audio = if (sameDevice) current.audio else null,
-            media = if (sameDevice) current.media else null,
-            loadError = null,
-        )
+        _uiState.value = if (sameDevice) {
+            current.copy(
+                loading = true,
+                loadError = null,
+            )
+        } else {
+            AlertsUiState(
+                deviceId = deviceId,
+                loading = true,
+            )
+        }
 
         viewModelScope.launch {
             val result = supervisorScope {
@@ -57,18 +68,32 @@ class AlertsViewModel(
                 return@launch
             }
 
+            val currentState = _uiState.value
+            val provider = result.first.getOrNull() ?: currentState.provider
+            val audio = result.second.getOrNull() ?: currentState.audio
+            val media = result.third.getOrNull() ?: currentState.media
             val errors = buildList {
                 result.first.exceptionOrNull()?.message?.let { add("API тривог: " + it) }
                 result.second.exceptionOrNull()?.message?.let { add("аудіопараметри: " + it) }
                 result.third.exceptionOrNull()?.message?.let { add("файли сповіщень: " + it) }
             }
 
-            _uiState.value = _uiState.value.copy(
+            _uiState.value = currentState.copy(
                 deviceId = deviceId,
                 loading = false,
-                provider = result.first.getOrNull() ?: _uiState.value.provider,
-                audio = result.second.getOrNull() ?: _uiState.value.audio,
-                media = result.third.getOrNull() ?: _uiState.value.media,
+                provider = provider,
+                providerForm = when {
+                    currentState.providerDirty -> currentState.providerForm
+                    provider != null -> provider.toForm()
+                    else -> null
+                },
+                audio = audio,
+                audioForm = when {
+                    currentState.audioDirty -> currentState.audioForm
+                    audio != null -> audio.toForm()
+                    else -> null
+                },
+                media = media,
                 loadError = errors.takeIf { it.isNotEmpty() }?.joinToString("; "),
             )
         }
@@ -76,6 +101,282 @@ class AlertsViewModel(
 
     fun refresh() {
         ensureLoaded(force = true)
+    }
+
+    fun updateProviderForm(form: AlertProviderForm) {
+        _uiState.value = _uiState.value.copy(
+            providerForm = form,
+            providerDirty = true,
+            providerMessage = null,
+        )
+    }
+
+    fun updateAudioForm(form: AlertAudioForm) {
+        _uiState.value = _uiState.value.copy(
+            audioForm = form,
+            audioDirty = true,
+            audioMessage = null,
+        )
+    }
+
+    fun saveProvider() {
+        val form = _uiState.value.providerForm ?: return
+        runProviderAction(
+            busyAction = AlertsBusyAction.ProviderSave,
+            action = {
+                val saved = sessionRepository.saveAlertProviderSettings(
+                    form.toUpdate(),
+                )
+                _uiState.value = _uiState.value.copy(
+                    provider = saved,
+                    providerForm = saved.toForm(),
+                    providerDirty = false,
+                    providerMessage = AlertsMessage(
+                        text = "Налаштування API збережено",
+                        isError = false,
+                    ),
+                )
+            },
+        )
+    }
+
+    fun testProvider() {
+        val form = _uiState.value.providerForm ?: return
+        runProviderAction(
+            busyAction = AlertsBusyAction.ProviderTest,
+            action = {
+                val result = sessionRepository.testAlertProviderSettings(
+                    form.toUpdate(),
+                )
+                _uiState.value = _uiState.value.copy(
+                    providerMessage = AlertsMessage(
+                        text = if (result.active) {
+                            "API доступний. Для UID " +
+                                result.locationUid +
+                                " зараз активна тривога."
+                        } else {
+                            "API доступний. Для UID " +
+                                result.locationUid +
+                                " зараз відбій."
+                        },
+                        isError = false,
+                    ),
+                )
+            },
+        )
+    }
+
+    fun saveAudio() {
+        if (_uiState.value.busyAction != null) return
+        val form = _uiState.value.audioForm ?: return
+        val update = try {
+            form.toUpdate()
+        } catch (error: IllegalArgumentException) {
+            _uiState.value = _uiState.value.copy(
+                audioMessage = AlertsMessage(
+                    text = error.message ?: "Некоректні параметри аудіо",
+                    isError = true,
+                ),
+            )
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(
+            busyAction = AlertsBusyAction.AudioSave,
+            audioMessage = null,
+        )
+        viewModelScope.launch {
+            try {
+                val saved = sessionRepository.saveAlertAudioSettings(update)
+                _uiState.value = _uiState.value.copy(
+                    audio = saved,
+                    audioForm = saved.toForm(),
+                    audioDirty = false,
+                    audioMessage = AlertsMessage(
+                        text = "Налаштування аудіо збережено",
+                        isError = false,
+                    ),
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    audioMessage = AlertsMessage(
+                        text = error.message ?: "Не вдалося зберегти аудіопараметри",
+                        isError = true,
+                    ),
+                )
+            } finally {
+                _uiState.value = _uiState.value.copy(
+                    busyAction = null,
+                )
+            }
+        }
+    }
+
+    fun uploadMedia(
+        kind: String,
+        uriText: String,
+    ) {
+        if (_uiState.value.busyAction != null) return
+        val media = _uiState.value.media ?: return
+        _uiState.value = _uiState.value.copy(
+            busyAction = AlertsBusyAction.MediaUpload(kind),
+            mediaMessage = null,
+        )
+
+        viewModelScope.launch {
+            try {
+                val imported = mediaImporter.read(
+                    uriText = uriText,
+                    maxBytes = media.maxSizeBytes,
+                )
+                val saved = sessionRepository.uploadAlertMedia(
+                    kind = kind,
+                    bytes = imported.bytes,
+                    contentType = imported.contentType,
+                )
+                _uiState.value = _uiState.value.copy(
+                    media = _uiState.value.media?.replace(saved),
+                    mediaMessage = AlertsMessage(
+                        text = "Завантажено " + imported.displayName,
+                        isError = false,
+                    ),
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    mediaMessage = AlertsMessage(
+                        text = error.message ?: "Не вдалося завантажити MP3",
+                        isError = true,
+                    ),
+                )
+            } finally {
+                _uiState.value = _uiState.value.copy(
+                    busyAction = null,
+                )
+            }
+        }
+    }
+
+    fun resetMedia(kind: String) {
+        if (_uiState.value.busyAction != null) return
+        _uiState.value = _uiState.value.copy(
+            busyAction = AlertsBusyAction.MediaReset(kind),
+            mediaMessage = null,
+        )
+        viewModelScope.launch {
+            try {
+                val saved = sessionRepository.resetAlertMedia(kind)
+                _uiState.value = _uiState.value.copy(
+                    media = _uiState.value.media?.replace(saved),
+                    mediaMessage = AlertsMessage(
+                        text = "Стандартний файл відновлено",
+                        isError = false,
+                    ),
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    mediaMessage = AlertsMessage(
+                        text = error.message ?: "Не вдалося відновити файл",
+                        isError = true,
+                    ),
+                )
+            } finally {
+                _uiState.value = _uiState.value.copy(
+                    busyAction = null,
+                )
+            }
+        }
+    }
+
+    fun resetAllMedia() {
+        if (_uiState.value.busyAction != null) return
+        val kinds = _uiState.value.media
+            ?.items
+            ?.map { it.kind }
+            .orEmpty()
+        if (kinds.isEmpty()) return
+
+        _uiState.value = _uiState.value.copy(
+            busyAction = AlertsBusyAction.MediaResetAll,
+            mediaMessage = null,
+        )
+        viewModelScope.launch {
+            try {
+                kinds.forEach { kind ->
+                    sessionRepository.resetAlertMedia(kind)
+                }
+                val refreshed = sessionRepository.alertMedia()
+                _uiState.value = _uiState.value.copy(
+                    media = refreshed,
+                    mediaMessage = AlertsMessage(
+                        text = "Стандартні файли сповіщень відновлено",
+                        isError = false,
+                    ),
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                val refreshed = capture { sessionRepository.alertMedia() }.getOrNull()
+                _uiState.value = _uiState.value.copy(
+                    media = refreshed ?: _uiState.value.media,
+                    mediaMessage = AlertsMessage(
+                        text = error.message ?: "Не вдалося відновити всі файли",
+                        isError = true,
+                    ),
+                )
+            } finally {
+                _uiState.value = _uiState.value.copy(
+                    busyAction = null,
+                )
+            }
+        }
+    }
+
+    private fun runProviderAction(
+        busyAction: AlertsBusyAction,
+        action: suspend () -> Unit,
+    ) {
+        if (_uiState.value.busyAction != null) return
+        val form = _uiState.value.providerForm ?: return
+        try {
+            form.toUpdate()
+        } catch (error: IllegalArgumentException) {
+            _uiState.value = _uiState.value.copy(
+                providerMessage = AlertsMessage(
+                    text = error.message ?: "Некоректні параметри API",
+                    isError = true,
+                ),
+            )
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(
+            busyAction = busyAction,
+            providerMessage = null,
+        )
+        viewModelScope.launch {
+            try {
+                action()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    providerMessage = AlertsMessage(
+                        text = error.message ?: "Помилка API тривог",
+                        isError = true,
+                    ),
+                )
+            } finally {
+                _uiState.value = _uiState.value.copy(
+                    busyAction = null,
+                )
+            }
+        }
     }
 
     private suspend fun <T> capture(block: suspend () -> T): Result<T> =
@@ -90,11 +391,111 @@ class AlertsViewModel(
     companion object {
         fun factory(
             sessionRepository: PlayerSessionRepository,
+            mediaImporter: AndroidAlertMediaImporter,
         ): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
-                    AlertsViewModel(sessionRepository)
+                    AlertsViewModel(
+                        sessionRepository = sessionRepository,
+                        mediaImporter = mediaImporter,
+                    )
                 }
             }
     }
 }
+
+private fun AlertProviderSettings.toForm(): AlertProviderForm =
+    AlertProviderForm(
+        endpoint = endpoint,
+        locationUid = locationUid.toString(),
+        locationType = locationType,
+        pollIntervalSeconds = pollIntervalSeconds.cleanNumber(),
+        requestTimeoutSeconds = requestTimeoutSeconds.cleanNumber(),
+        rateLimitBackoffSeconds = rateLimitBackoffSeconds.cleanNumber(),
+        clearConfirmations = clearConfirmations.toString(),
+    )
+
+private fun AlertAudioSettings.toForm(): AlertAudioForm =
+    AlertAudioForm(
+        airRaidAlertsEnabled = airRaidAlertsEnabled,
+        minuteSilenceEnabled = minuteSilenceEnabled,
+        duckDb = duckDb.cleanNumber(),
+        duckFadeSeconds = duckFadeSeconds.cleanNumber(),
+        restoreFadeSeconds = restoreFadeSeconds.cleanNumber(),
+        alertVolumePercent = alertVolumePercent.cleanNumber(),
+        defaultRestoreVolumePercent = defaultRestoreVolumePercent.cleanNumber(),
+        minuteSilenceVolumePercent = minuteSilenceVolumePercent.cleanNumber(),
+        minuteSilenceStartTime = minuteSilenceStartTime,
+        minuteSilenceTimezone = minuteSilenceTimezone,
+        minuteSilenceCatchUpSeconds = minuteSilenceCatchUpSeconds.toString(),
+        minuteSilenceMusicFadeSeconds = minuteSilenceMusicFadeSeconds.cleanNumber(),
+        alertRepeatIntervalMinutes = alertRepeatIntervalMinutes.toString(),
+        duckOnlyDuringAnnouncement = duckOnlyDuringAnnouncement,
+    )
+
+private fun AlertProviderForm.toUpdate(): AlertProviderUpdate {
+    val uid = locationUid.requiredLong("UID локації")
+    require(uid in 1..4_294_967_295L) {
+        "UID локації має бути в межах 1..4294967295"
+    }
+    return AlertProviderUpdate(
+        endpoint = endpoint.trim(),
+        locationUid = uid,
+        locationType = locationType.trim(),
+        pollIntervalSeconds = pollIntervalSeconds.requiredDouble("Інтервал опитування"),
+        requestTimeoutSeconds = requestTimeoutSeconds.requiredDouble("Timeout"),
+        rateLimitBackoffSeconds =
+            rateLimitBackoffSeconds.requiredDouble("Пауза після HTTP 429"),
+        clearConfirmations = clearConfirmations.requiredInt("Підтвердження відбою"),
+        token = token.trim().takeIf { it.isNotEmpty() },
+    )
+}
+
+private fun AlertAudioForm.toUpdate(): AlertAudioUpdate =
+    AlertAudioUpdate(
+        airRaidAlertsEnabled = airRaidAlertsEnabled,
+        duckDb = duckDb.requiredDouble("Ducking"),
+        duckFadeSeconds = duckFadeSeconds.requiredDouble("Плавне стишення"),
+        restoreFadeSeconds = restoreFadeSeconds.requiredDouble("Відновлення"),
+        alertVolumePercent = alertVolumePercent.requiredDouble("Гучність ALERT"),
+        defaultRestoreVolumePercent =
+            defaultRestoreVolumePercent.requiredDouble("Рівень відновлення"),
+        minuteSilenceVolumePercent =
+            minuteSilenceVolumePercent.requiredDouble("Гучність хвилини мовчання"),
+        minuteSilenceEnabled = minuteSilenceEnabled,
+        minuteSilenceStartTime = minuteSilenceStartTime.trim(),
+        minuteSilenceTimezone = minuteSilenceTimezone.trim(),
+        minuteSilenceCatchUpSeconds =
+            minuteSilenceCatchUpSeconds.requiredLong("Допустиме запізнення"),
+        minuteSilenceMusicFadeSeconds =
+            minuteSilenceMusicFadeSeconds.requiredDouble("Стишення хвилини мовчання"),
+        alertRepeatIntervalMinutes =
+            alertRepeatIntervalMinutes.requiredLong("Повторення тривоги"),
+        duckOnlyDuringAnnouncement = duckOnlyDuringAnnouncement,
+    )
+
+private fun AlertMediaCatalog.replace(item: AlertMediaFile): AlertMediaCatalog =
+    copy(
+        items = items.map { current ->
+            if (current.kind == item.kind) item else current
+        },
+    )
+
+private fun String.requiredDouble(label: String): Double =
+    trim().toDoubleOrNull()
+        ?: throw IllegalArgumentException("$label має містити число")
+
+private fun String.requiredLong(label: String): Long =
+    trim().toLongOrNull()
+        ?: throw IllegalArgumentException("$label має містити ціле число")
+
+private fun String.requiredInt(label: String): Int =
+    trim().toIntOrNull()
+        ?: throw IllegalArgumentException("$label має містити ціле число")
+
+private fun Double.cleanNumber(): String =
+    if (this % 1.0 == 0.0) {
+        toLong().toString()
+    } else {
+        toString()
+    }
