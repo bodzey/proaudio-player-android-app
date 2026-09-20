@@ -44,6 +44,7 @@ class PlayerSessionRepository(
             ConnectionTarget(
                 selectedId = selectedId,
                 device = device,
+                connectionIdentity = device?.toConnectionIdentity(),
             )
         }
     }.distinctUntilChanged()
@@ -170,22 +171,20 @@ class PlayerSessionRepository(
         }
     }
 
-    private data class ConnectionTarget(
+    private class ConnectionTarget(
         val selectedId: DeviceId,
         val device: AvailableDevice?,
+        private val connectionIdentity: ConnectionIdentity?,
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other !is ConnectionTarget) return false
-            if (selectedId != other.selectedId) return false
-
-            val left = device?.connectionIdentity()
-            val right = other.device?.connectionIdentity()
-            return left == right
+            return selectedId == other.selectedId &&
+                connectionIdentity == other.connectionIdentity
         }
 
         override fun hashCode(): Int =
-            31 * selectedId.hashCode() + (device?.connectionIdentity()?.hashCode() ?: 0)
+            31 * selectedId.hashCode() + (connectionIdentity?.hashCode() ?: 0)
     }
 
     private data class ConnectionIdentity(
@@ -195,7 +194,7 @@ class PlayerSessionRepository(
         val endpoints: Set<DeviceEndpoint>,
     )
 
-    private fun AvailableDevice.connectionIdentity(): ConnectionIdentity =
+    private fun AvailableDevice.toConnectionIdentity(): ConnectionIdentity =
         ConnectionIdentity(
             id = id,
             displayName = displayName,
