@@ -5,6 +5,7 @@ import com.bodzey.proaudioplayer.core.device.AvailableDevice
 import com.bodzey.proaudioplayer.core.device.DeviceRepository
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import com.bodzey.proaudioplayer.core.model.DeviceId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,6 +94,8 @@ class PlayerSessionRepository(
                     status = status,
                 ),
             )
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             emit(
                 PlayerSessionState.Failed(
