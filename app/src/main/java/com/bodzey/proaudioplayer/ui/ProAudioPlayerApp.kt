@@ -30,11 +30,18 @@ fun ProAudioPlayerApp(
         val sessionState = playerViewModel.state.collectAsStateWithLifecycle()
         val pendingAction = playerViewModel.pendingAction.collectAsStateWithLifecycle()
         val actionError = playerViewModel.actionError.collectAsStateWithLifecycle()
+        val section = playerViewModel.section.collectAsStateWithLifecycle()
+        val masterControlBusy = playerViewModel.masterControlBusy.collectAsStateWithLifecycle()
         PlayerScreen(
             state = sessionState.value,
+            section = section.value,
             pendingAction = pendingAction.value,
+            masterControlBusy = masterControlBusy.value,
             actionError = actionError.value,
+            onSectionSelected = playerViewModel::selectSection,
             onAction = playerViewModel::performAction,
+            onMasterVolumeCommitted = playerViewModel::setMasterVolume,
+            onMasterMuteChange = playerViewModel::setMasterMuted,
             onBack = playerViewModel::close,
         )
     }
