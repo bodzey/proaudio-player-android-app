@@ -6,6 +6,10 @@
     <string name="devices_searching_support">Keep this screen open while players are discovered on the local network.</string>
     <string name="device_online">Online</string>
     <string name="device_api_version">API v%1$d</string>
-    <string name="device_endpoint_count">%1$d endpoint(s)</string>
     <string name="demo_devices">Demo devices</string>
+
+    <plurals name="device_endpoint_count">
+        <item quantity="one">%1$d endpoint</item>
+        <item quantity="other">%1$d endpoints</item>
+    </plurals>
 </resources>
