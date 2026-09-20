@@ -10,6 +10,10 @@
     <string name="device_online">Онлайн</string>
     <string name="device_offline">Офлайн</string>
     <string name="device_api_version">API v%1$d</string>
+    <string name="device_forget">Забути</string>
+    <string name="device_forget_title">Забути плеєр?</string>
+    <string name="device_forget_message">Видалити «%1$s» з історії цього пристрою? Якщо плеєр знову з’явиться в мережі, його буде додано автоматично.</string>
+    <string name="cancel">Скасувати</string>
     <string name="demo_devices">Демо-плеєри</string>
     <string name="demo_devices_hint">Лише для debug-збірки</string>
 

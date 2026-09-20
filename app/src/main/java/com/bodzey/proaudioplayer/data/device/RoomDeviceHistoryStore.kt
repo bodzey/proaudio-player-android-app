@@ -42,6 +42,10 @@ class RoomDeviceHistoryStore(
             }
     }
 
+    override suspend fun forget(deviceId: DeviceId) {
+        dao.deleteDevice(deviceId.value)
+    }
+
     private fun toKnownDevice(
         row: KnownDeviceWithEndpoints,
     ): KnownDevice? {

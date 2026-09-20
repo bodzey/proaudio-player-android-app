@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class DeviceRepository(
     deviceRegistry: DeviceRegistry,
@@ -19,6 +21,7 @@ class DeviceRepository(
 ) {
     private val persistenceRequests =
         Channel<List<AvailableDevice>>(capacity = Channel.CONFLATED)
+    private val historyMutex = Mutex()
 
     val devices: StateFlow<List<AvailableDevice>> = deviceRegistry
         .devices()
@@ -60,11 +63,27 @@ class DeviceRepository(
     fun current(deviceId: DeviceId): AvailableDevice? =
         devices.value.firstOrNull { device -> device.id == deviceId }
 
+    suspend fun forgetKnownDevice(deviceId: DeviceId) {
+        historyMutex.withLock {
+            check(current(deviceId) == null) {
+                "Online devices cannot be forgotten"
+            }
+
+            historyStore.forget(deviceId)
+
+            current(deviceId)?.let { liveDevice ->
+                historyStore.record(listOf(liveDevice))
+            }
+        }
+    }
+
     private suspend fun persistLiveSnapshot(
         devices: List<AvailableDevice>,
     ) {
         try {
-            historyStore.record(devices)
+            historyMutex.withLock {
+                historyStore.record(devices)
+            }
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {

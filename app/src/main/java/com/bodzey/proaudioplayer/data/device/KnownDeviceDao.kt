@@ -34,6 +34,9 @@ abstract class KnownDeviceDao {
     )
     abstract suspend fun deleteEndpoints(deviceId: String)
 
+    @Query("DELETE FROM known_devices WHERE id = :deviceId")
+    abstract suspend fun deleteDevice(deviceId: String)
+
     @Transaction
     open suspend fun replaceObserved(
         device: KnownDeviceEntity,

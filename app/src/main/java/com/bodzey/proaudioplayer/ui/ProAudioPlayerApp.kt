@@ -36,13 +36,17 @@ fun ProAudioPlayerApp(
     if (selectedDeviceId.value == null) {
         val devices = devicesViewModel.devices.collectAsStateWithLifecycle()
         val demoEnabled = devicesViewModel.demoEnabled.collectAsStateWithLifecycle()
+        val forgettingDeviceId =
+            devicesViewModel.forgettingDeviceId.collectAsStateWithLifecycle()
 
         DevicesScreen(
             devices = devices.value,
             demoEnabled = demoEnabled.value,
             showDemoControls = showDemoControls,
+            forgettingDeviceId = forgettingDeviceId.value,
             onDemoEnabledChange = devicesViewModel::setDemoEnabled,
             onDeviceSelected = playerViewModel::rememberSelectedDevice,
+            onDeviceForget = devicesViewModel::forgetDevice,
         )
     } else {
         val sessionState = playerViewModel.state.collectAsStateWithLifecycle()
