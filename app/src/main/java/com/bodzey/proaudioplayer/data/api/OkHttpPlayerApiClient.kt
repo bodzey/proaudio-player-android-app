@@ -3,8 +3,12 @@ package com.bodzey.proaudioplayer.data.api
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
+import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
 import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
+import com.bodzey.proaudioplayer.core.api.AlertMediaFile
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
+import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
+import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
@@ -19,6 +23,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -30,10 +41,25 @@ class OkHttpPlayerApiClient(
 ) : PlayerApiClient {
 
     private val parser = ApiJsonParser()
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = false
+    }
 
     private val eventClient: OkHttpClient = client.newBuilder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .callTimeout(0, TimeUnit.MILLISECONDS)
+        .build()
+
+    private val providerTestClient: OkHttpClient = client.newBuilder()
+        .readTimeout(125, TimeUnit.SECONDS)
+        .callTimeout(130, TimeUnit.SECONDS)
+        .build()
+
+    private val mediaClient: OkHttpClient = client.newBuilder()
+        .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(45, TimeUnit.SECONDS)
+        .callTimeout(60, TimeUnit.SECONDS)
         .build()
 
     override suspend fun health(endpoint: DeviceEndpoint): ApiHealth =
@@ -52,7 +78,7 @@ class OkHttpPlayerApiClient(
         postJson(
             endpoint = endpoint,
             path = "/api/v1/player",
-            json = """{"action":"${action.wireValue}"}""",
+            jsonBody = """{"action":"${action.wireValue}"}""",
         )
     }
 
@@ -63,7 +89,7 @@ class OkHttpPlayerApiClient(
         postJson(
             endpoint = endpoint,
             path = "/api/v1/audio/level",
-            json = """{"target":"master","percent":$percent}""",
+            jsonBody = """{"target":"master","percent":$percent}""",
         )
     }
 
@@ -75,7 +101,7 @@ class OkHttpPlayerApiClient(
         postJson(
             endpoint = endpoint,
             path = "/api/v1/audio/mixer",
-            json = """{"target":"master","db":$db,"muted":$muted}""",
+            jsonBody = """{"target":"master","db":$db,"muted":$muted}""",
         )
     }
 
@@ -86,11 +112,11 @@ class OkHttpPlayerApiClient(
         endpoint: DeviceEndpoint,
         url: String,
     ) {
-        val encodedUrl = kotlinx.serialization.json.JsonPrimitive(url).toString()
+        val encodedUrl = JsonPrimitive(url).toString()
         postJson(
             endpoint = endpoint,
             path = "/api/v1/streams/play",
-            json = """{"url":$encodedUrl}""",
+            jsonBody = """{"url":$encodedUrl}""",
         )
     }
 
@@ -108,6 +134,73 @@ class OkHttpPlayerApiClient(
         endpoint: DeviceEndpoint,
     ): AlertMediaCatalog =
         parser.alertMedia(get(endpoint, "/api/v1/settings/alerts/media"))
+
+    override suspend fun saveAlertProviderSettings(
+        endpoint: DeviceEndpoint,
+        update: AlertProviderUpdate,
+    ): AlertProviderSettings =
+        parser.alertProviderSettings(
+            putJsonForBody(
+                endpoint = endpoint,
+                path = "/api/v1/settings/alerts",
+                jsonBody = providerUpdateJson(update),
+            ),
+        )
+
+    override suspend fun testAlertProviderSettings(
+        endpoint: DeviceEndpoint,
+        update: AlertProviderUpdate,
+    ): AlertProviderTestResult =
+        parser.alertProviderTest(
+            postJsonForBody(
+                endpoint = endpoint,
+                path = "/api/v1/settings/alerts/test",
+                jsonBody = providerUpdateJson(update),
+                requestClient = providerTestClient,
+            ),
+        )
+
+    override suspend fun saveAlertAudioSettings(
+        endpoint: DeviceEndpoint,
+        update: AlertAudioUpdate,
+    ): AlertAudioSettings =
+        parser.alertAudioSettings(
+            putJsonForBody(
+                endpoint = endpoint,
+                path = "/api/v1/settings/audio",
+                jsonBody = audioUpdateJson(update),
+            ),
+        )
+
+    override suspend fun uploadAlertMedia(
+        endpoint: DeviceEndpoint,
+        kind: String,
+        bytes: ByteArray,
+        contentType: String,
+    ): AlertMediaFile {
+        val safeKind = requireAlertMediaKind(kind)
+        val mediaType = runCatching { contentType.toMediaType() }
+            .getOrElse { "application/octet-stream".toMediaType() }
+        val request = Request.Builder()
+            .url(endpoint.apiUrl("/api/v1/settings/alerts/media/$safeKind"))
+            .header("Accept", "application/json")
+            .put(bytes.toRequestBody(mediaType))
+            .build()
+        return parser.alertMediaFile(executeForBody(mediaClient, request))
+    }
+
+    override suspend fun resetAlertMedia(
+        endpoint: DeviceEndpoint,
+        kind: String,
+    ): AlertMediaFile {
+        val safeKind = requireAlertMediaKind(kind)
+        val request = Request.Builder()
+            .url(endpoint.apiUrl("/api/v1/settings/alerts/media/$safeKind"))
+            .header("Accept", "application/json")
+            .delete()
+            .build()
+        return parser.alertMediaFile(executeForBody(mediaClient, request))
+    }
 
     override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> = channelFlow {
         val request = Request.Builder()
@@ -170,26 +263,40 @@ class OkHttpPlayerApiClient(
     private suspend fun postJson(
         endpoint: DeviceEndpoint,
         path: String,
-        json: String,
+        jsonBody: String,
     ) {
+        postJsonForBody(
+            endpoint = endpoint,
+            path = path,
+            jsonBody = jsonBody,
+        )
+    }
+
+    private suspend fun postJsonForBody(
+        endpoint: DeviceEndpoint,
+        path: String,
+        jsonBody: String,
+        requestClient: OkHttpClient = client,
+    ): String {
         val request = Request.Builder()
             .url(endpoint.apiUrl(path))
             .header("Accept", "application/json")
-            .post(
-                json.toRequestBody(
-                    "application/json; charset=utf-8".toMediaType(),
-                ),
-            )
+            .post(jsonBody.toJsonRequestBody())
             .build()
+        return executeForBody(requestClient, request)
+    }
 
-        client.newCall(request).executeAsync().use { response ->
-            if (!response.isSuccessful) {
-                throw PlayerApiException(
-                    statusCode = response.code,
-                    message = "Player API returned HTTP " + response.code,
-                )
-            }
-        }
+    private suspend fun putJsonForBody(
+        endpoint: DeviceEndpoint,
+        path: String,
+        jsonBody: String,
+    ): String {
+        val request = Request.Builder()
+            .url(endpoint.apiUrl(path))
+            .header("Accept", "application/json")
+            .put(jsonBody.toJsonRequestBody())
+            .build()
+        return executeForBody(client, request)
     }
 
     private suspend fun get(
@@ -200,8 +307,14 @@ class OkHttpPlayerApiClient(
             .url(endpoint.apiUrl(path))
             .header("Accept", "application/json")
             .build()
+        return executeForBody(client, request)
+    }
 
-        client.newCall(request).executeAsync().use { response ->
+    private suspend fun executeForBody(
+        requestClient: OkHttpClient,
+        request: Request,
+    ): String =
+        requestClient.newCall(request).executeAsync().use { response ->
             val body = withContext(Dispatchers.IO) {
                 response.body.string()
             }
@@ -209,23 +322,101 @@ class OkHttpPlayerApiClient(
             if (!response.isSuccessful) {
                 throw PlayerApiException(
                     statusCode = response.code,
-                    message = "Player API returned HTTP " + response.code,
+                    message = apiErrorMessage(
+                        statusCode = response.code,
+                        body = body,
+                    ),
                 )
             }
             if (body.isBlank()) {
                 throw ApiProtocolException("Player API returned an empty response")
             }
-            return body
+            body
         }
+
+    private fun apiErrorMessage(
+        statusCode: Int,
+        body: String,
+    ): String =
+        runCatching {
+            json.parseToJsonElement(body)
+                .jsonObject["error"]
+                ?.jsonPrimitive
+                ?.contentOrNull
+        }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: "Player API returned HTTP $statusCode"
+
+    private fun String.toJsonRequestBody() =
+        toRequestBody("application/json; charset=utf-8".toMediaType())
+
+    private fun providerUpdateJson(update: AlertProviderUpdate): String =
+        buildJsonObject {
+            put("endpoint", update.endpoint)
+            put("location_uid", update.locationUid)
+            put("location_type", update.locationType)
+            put("poll_interval_seconds", update.pollIntervalSeconds)
+            put("request_timeout_seconds", update.requestTimeoutSeconds)
+            put("rate_limit_backoff_seconds", update.rateLimitBackoffSeconds)
+            put("clear_confirmations", update.clearConfirmations)
+            update.token?.let { token ->
+                put("token", token)
+            }
+        }.toString()
+
+    private fun audioUpdateJson(update: AlertAudioUpdate): String =
+        buildJsonObject {
+            put("air_raid_alerts_enabled", update.airRaidAlertsEnabled)
+            put("duck_db", update.duckDb)
+            put("duck_fade_seconds", update.duckFadeSeconds)
+            put("restore_fade_seconds", update.restoreFadeSeconds)
+            put("alert_volume_percent", update.alertVolumePercent)
+            put(
+                "default_restore_volume_percent",
+                update.defaultRestoreVolumePercent,
+            )
+            put(
+                "minute_silence_volume_percent",
+                update.minuteSilenceVolumePercent,
+            )
+            put("minute_silence_enabled", update.minuteSilenceEnabled)
+            put("minute_silence_start_time", update.minuteSilenceStartTime)
+            put("minute_silence_timezone", update.minuteSilenceTimezone)
+            put(
+                "minute_silence_catch_up_seconds",
+                update.minuteSilenceCatchUpSeconds,
+            )
+            put(
+                "minute_silence_music_fade_seconds",
+                update.minuteSilenceMusicFadeSeconds,
+            )
+            put(
+                "alert_repeat_interval_minutes",
+                update.alertRepeatIntervalMinutes,
+            )
+            put(
+                "duck_only_during_announcement",
+                update.duckOnlyDuringAnnouncement,
+            )
+        }.toString()
+
+    private fun requireAlertMediaKind(kind: String): String {
+        require(kind in ALERT_MEDIA_KINDS) {
+            "Unsupported alert media kind: $kind"
+        }
+        return kind
     }
 
     companion object {
+        private val ALERT_MEDIA_KINDS =
+            setOf("alarm_start", "alarm_end", "minute_silence")
+
         private fun defaultClient(): OkHttpClient =
             OkHttpClient.Builder()
                 .connectTimeout(2, TimeUnit.SECONDS)
-                .readTimeout(4, TimeUnit.SECONDS)
-                .writeTimeout(4, TimeUnit.SECONDS)
-                .callTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(8, TimeUnit.SECONDS)
+                .writeTimeout(8, TimeUnit.SECONDS)
+                .callTimeout(10, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(false)
                 .build()
     }
