@@ -1,6 +1,7 @@
 package com.bodzey.proaudioplayer.core.session
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
+import com.bodzey.proaudioplayer.core.api.AudioOutputDescriptor
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
 import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
 import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
@@ -10,6 +11,7 @@ import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
+import com.bodzey.proaudioplayer.core.api.QueueItem
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
 import com.bodzey.proaudioplayer.core.device.DeviceRepository
@@ -153,6 +155,119 @@ class PlayerSessionRepository(
             expectedDeviceId = expectedDeviceId,
             action = PlayerAction.Stop,
         )
+    }
+
+    suspend fun audioOutputs(
+        expectedDeviceId: DeviceId,
+    ): List<AudioOutputDescriptor> {
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "audio_outputs")
+        return apiClient.audioOutputs(connected.endpoint)
+    }
+
+    suspend fun selectAudioOutput(
+        expectedDeviceId: DeviceId,
+        id: String,
+    ): AudioOutputDescriptor {
+        require(id.isNotBlank()) {
+            "Audio output ID must not be blank"
+        }
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "audio_outputs")
+        return apiClient.selectAudioOutput(
+            endpoint = connected.endpoint,
+            id = id,
+        )
+    }
+
+    suspend fun library(
+        expectedDeviceId: DeviceId,
+    ): List<String> {
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "library")
+        return apiClient.library(connected.endpoint)
+    }
+
+    suspend fun refreshLibrary(expectedDeviceId: DeviceId) {
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "library")
+        apiClient.refreshLibrary(connected.endpoint)
+    }
+
+    suspend fun playLibraryPath(
+        expectedDeviceId: DeviceId,
+        path: String,
+    ) {
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "library")
+        apiClient.playLibraryPath(
+            endpoint = connected.endpoint,
+            path = path,
+        )
+    }
+
+    suspend fun playlists(
+        expectedDeviceId: DeviceId,
+    ): List<String> {
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "playlists")
+        return apiClient.playlists(connected.endpoint)
+    }
+
+    suspend fun loadPlaylist(
+        expectedDeviceId: DeviceId,
+        name: String,
+    ) {
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "playlists")
+        apiClient.loadPlaylist(
+            endpoint = connected.endpoint,
+            name = name,
+        )
+    }
+
+    suspend fun queue(
+        expectedDeviceId: DeviceId,
+    ): List<QueueItem> {
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "queue")
+        return apiClient.queue(connected.endpoint)
+    }
+
+    suspend fun playQueueItem(
+        expectedDeviceId: DeviceId,
+        position: Int,
+    ) {
+        require(position > 0) {
+            "Queue position must be positive"
+        }
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "queue")
+        apiClient.playQueueItem(
+            endpoint = connected.endpoint,
+            position = position,
+        )
+    }
+
+    suspend fun removeQueueItem(
+        expectedDeviceId: DeviceId,
+        position: Int,
+    ) {
+        require(position > 0) {
+            "Queue position must be positive"
+        }
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "queue")
+        apiClient.removeQueueItem(
+            endpoint = connected.endpoint,
+            position = position,
+        )
+    }
+
+    suspend fun clearQueue(expectedDeviceId: DeviceId) {
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "queue")
+        apiClient.clearQueue(connected.endpoint)
     }
 
     suspend fun alertProviderSettings(
