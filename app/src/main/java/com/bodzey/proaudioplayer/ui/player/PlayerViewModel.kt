@@ -13,6 +13,7 @@ import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.AppSection
 import kotlin.math.abs
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,10 +65,15 @@ class PlayerViewModel(
                 }
 
                 try {
-                    sessionRepository.setMasterVolume(request.percent)
+                    sessionRepository.setMasterVolume(
+                        expectedDeviceId = request.deviceId,
+                        percent = request.percent,
+                    )
                     if (selectedDeviceId.value == request.deviceId) {
                         _lastSentMasterVolume.value = request.percent
                     }
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (error: Exception) {
                     if (selectedDeviceId.value == request.deviceId &&
                         _masterVolumeOverride.value?.let { value ->
@@ -113,11 +119,17 @@ class PlayerViewModel(
         if (_pendingAction.value != null) {
             return
         }
+        val deviceId = selectedDeviceId.value ?: return
         viewModelScope.launch {
             _pendingAction.value = action
             _actionError.value = null
             try {
-                sessionRepository.performAction(action)
+                sessionRepository.performAction(
+                    expectedDeviceId = deviceId,
+                    action = action,
+                )
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 _actionError.value = error.message ?: "Не вдалося виконати команду"
             } finally {
@@ -150,11 +162,17 @@ class PlayerViewModel(
         if (_masterMuteBusy.value) {
             return
         }
+        val deviceId = selectedDeviceId.value ?: return
         viewModelScope.launch {
             _masterMuteBusy.value = true
             _actionError.value = null
             try {
-                sessionRepository.setMasterMuted(muted)
+                sessionRepository.setMasterMuted(
+                    expectedDeviceId = deviceId,
+                    muted = muted,
+                )
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 _actionError.value = error.message ?: "Не вдалося змінити MASTER"
             } finally {
