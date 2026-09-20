@@ -9,6 +9,7 @@ import com.bodzey.proaudioplayer.ui.ProAudioPlayerApp
 import com.bodzey.proaudioplayer.ui.alerts.AlertsViewModel
 import com.bodzey.proaudioplayer.ui.devices.DevicesViewModel
 import com.bodzey.proaudioplayer.ui.meter.MeterViewModel
+import com.bodzey.proaudioplayer.ui.output.OutputViewModel
 import com.bodzey.proaudioplayer.ui.player.PlayerViewModel
 import com.bodzey.proaudioplayer.ui.radio.RadioViewModel
 import com.bodzey.proaudioplayer.ui.theme.ProAudioPlayerTheme
@@ -30,6 +31,11 @@ class MainActivity : ComponentActivity() {
             val meterViewModel: MeterViewModel = viewModel(
                 factory = MeterViewModel.factory(
                     meterRepository = container.meterRepository,
+                ),
+            )
+            val outputViewModel: OutputViewModel = viewModel(
+                factory = OutputViewModel.factory(
+                    sessionRepository = container.playerSessionRepository,
                 ),
             )
             val playerViewModel: PlayerViewModel = viewModel(
@@ -54,6 +60,7 @@ class MainActivity : ComponentActivity() {
                     devicesViewModel = devicesViewModel,
                     playerViewModel = playerViewModel,
                     meterViewModel = meterViewModel,
+                    outputViewModel = outputViewModel,
                     radioViewModel = radioViewModel,
                     alertsViewModel = alertsViewModel,
                     showDemoControls = BuildConfig.DEBUG,
