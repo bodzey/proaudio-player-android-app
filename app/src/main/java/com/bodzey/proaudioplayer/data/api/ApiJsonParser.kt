@@ -2,6 +2,8 @@ package com.bodzey.proaudioplayer.data.api
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
+import com.bodzey.proaudioplayer.core.api.AudioOutputCapabilities
+import com.bodzey.proaudioplayer.core.api.AudioOutputDescriptor
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
 import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
 import com.bodzey.proaudioplayer.core.api.AlertMediaFile
@@ -12,6 +14,7 @@ import com.bodzey.proaudioplayer.core.api.MeterFrame
 import com.bodzey.proaudioplayer.core.api.MpdState
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PriorityState
+import com.bodzey.proaudioplayer.core.api.QueueItem
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.api.StereoMeterLevel
 import com.bodzey.proaudioplayer.core.api.StereoMeterValues
@@ -126,6 +129,58 @@ internal class ApiJsonParser(
     }
 
 
+
+    fun audioOutputs(payload: String): List<AudioOutputDescriptor> {
+        val root = objectRoot(payload)
+        return root["items"]
+            ?.jsonArray
+            ?.mapNotNull { element ->
+                runCatching { audioOutput(element.jsonObject) }.getOrNull()
+            }
+            .orEmpty()
+    }
+
+    fun selectedAudioOutput(payload: String): AudioOutputDescriptor {
+        val root = objectRoot(payload)
+        val selected = root["selected"]?.jsonObject
+            ?: throw ApiProtocolException("Missing selected audio output")
+        return audioOutput(selected)
+    }
+
+    fun stringItems(payload: String): List<String> {
+        val root = objectRoot(payload)
+        return root["items"]
+            ?.jsonArray
+            ?.mapNotNull { value ->
+                value.jsonPrimitive.contentOrNull?.takeIf(String::isNotBlank)
+            }
+            .orEmpty()
+    }
+
+    fun queueItems(payload: String): List<QueueItem> {
+        val root = objectRoot(payload)
+        return root["items"]
+            ?.jsonArray
+            ?.mapNotNull { element ->
+                val item = runCatching { element.jsonObject }.getOrNull()
+                    ?: return@mapNotNull null
+                val position = item.optionalInt("position")
+                    ?.takeIf { value -> value > 0 }
+                    ?: return@mapNotNull null
+                val file = item.optionalString("file")
+                    ?.takeIf(String::isNotBlank)
+                    ?: return@mapNotNull null
+
+                QueueItem(
+                    position = position,
+                    file = file,
+                    title = item.optionalString("title").orEmpty(),
+                    artist = item.optionalString("artist").orEmpty(),
+                    album = item.optionalString("album").orEmpty(),
+                )
+            }
+            .orEmpty()
+    }
 
     fun meterFrame(payload: String): MeterFrame {
         val root = objectRoot(payload)
@@ -255,6 +310,32 @@ internal class ApiJsonParser(
     }
 
 
+    private fun audioOutput(item: JsonObject): AudioOutputDescriptor {
+        val capabilities = item["capabilities"]?.jsonObject
+            ?: throw ApiProtocolException("Missing audio output capabilities")
+        return AudioOutputDescriptor(
+            id = item.requiredString("id"),
+            name = item.requiredString("name"),
+            state = item.requiredString("state"),
+            deviceClass = item.requiredString("device_class"),
+            alsaCard = item.optionalInt("alsa_card"),
+            capabilities = AudioOutputCapabilities(
+                sampleFormat = capabilities.optionalString("sample_format"),
+                sampleRate = capabilities.optionalInt("sample_rate"),
+                channels = capabilities.optionalInt("channels"),
+                channelMap = capabilities["channel_map"]
+                    ?.jsonArray
+                    ?.mapNotNull { value -> value.jsonPrimitive.contentOrNull }
+                    .orEmpty(),
+                alsaDevice = capabilities.optionalInt("alsa_device"),
+                deviceApi = capabilities.optionalString("device_api"),
+                deviceBus = capabilities.optionalString("device_bus"),
+            ),
+            selected = item.optionalBoolean("selected") ?: false,
+            available = item.optionalBoolean("available") ?: false,
+        )
+    }
+
     private fun JsonObject.requiredMeterLevel(key: String): StereoMeterLevel {
         val meter = this[key]?.jsonObject
             ?: throw ApiProtocolException("Missing meter object '$key'")
@@ -356,6 +437,9 @@ internal class ApiJsonParser(
 
     private fun JsonObject?.optionalLong(key: String): Long? =
         this?.get(key)?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+
+    private fun JsonObject?.optionalInt(key: String): Int? =
+        this?.get(key)?.jsonPrimitive?.contentOrNull?.toIntOrNull()
 
     private fun JsonObject?.optionalString(key: String): String? =
         this?.get(key)?.jsonPrimitive?.contentOrNull
