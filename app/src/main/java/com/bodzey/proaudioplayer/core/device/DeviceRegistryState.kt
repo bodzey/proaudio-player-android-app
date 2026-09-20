@@ -32,6 +32,9 @@ class DeviceRegistryState private constructor(
                         .toSet(),
                     lastSeen = entries.maxOf { entry -> entry.value.observedAt },
                     presenceCount = entries.size,
+                    persistable = entries.any { entry ->
+                        entry.value.persistable
+                    },
                 )
             }
             .sortedWith(
