@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -77,6 +79,8 @@ internal fun AlertMediaSection(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.alerts_media_restoring))
                     } else {
                         Text(stringResource(R.string.alerts_media_restore_all))
                     }
@@ -196,6 +200,8 @@ private fun AlertMediaCard(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.alerts_media_uploading))
                     } else {
                         Text(stringResource(R.string.alerts_media_choose))
                     }
@@ -210,6 +216,8 @@ private fun AlertMediaCard(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.alerts_media_restoring))
                     } else {
                         Text(stringResource(R.string.alerts_media_restore))
                     }
