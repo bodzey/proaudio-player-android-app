@@ -58,7 +58,15 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
 
+    val okhttpBom = platform("com.squareup.okhttp3:okhttp-bom:5.4.0")
+    implementation(okhttpBom)
+    testImplementation(okhttpBom)
+    implementation("com.squareup.okhttp3:okhttp")
+    implementation("com.squareup.okhttp3:okhttp-coroutines")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
