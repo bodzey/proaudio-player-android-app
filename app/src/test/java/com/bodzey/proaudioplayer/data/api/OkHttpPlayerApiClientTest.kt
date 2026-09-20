@@ -1,5 +1,7 @@
 package com.bodzey.proaudioplayer.data.api
 
+import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
+import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import kotlinx.coroutines.flow.first
@@ -8,6 +10,8 @@ import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OkHttpPlayerApiClientTest {
@@ -325,6 +329,237 @@ class OkHttpPlayerApiClientTest {
             assertEquals(
                 "GET /api/v1/settings/alerts/media HTTP/1.1",
                 server.takeRequest().requestLine,
+            )
+        }
+    }
+
+
+    @Test
+    fun providerSettingsSaveUsesPutAndCanonicalFields() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body(
+                        """{"endpoint":"https://api.example/{uid}","location_uid":1133,"location_type":"hromada","poll_interval_seconds":8.0,"request_timeout_seconds":7.0,"rate_limit_backoff_seconds":60.0,"clear_confirmations":2,"token_configured":true}""",
+                    )
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(client = OkHttpClient())
+            val endpoint = DeviceEndpoint(server.hostName, server.port)
+
+            val saved = runBlocking {
+                client.saveAlertProviderSettings(
+                    endpoint,
+                    AlertProviderUpdate(
+                        endpoint = "https://api.example/{uid}",
+                        locationUid = 1133,
+                        locationType = "hromada",
+                        pollIntervalSeconds = 8.0,
+                        requestTimeoutSeconds = 7.0,
+                        rateLimitBackoffSeconds = 60.0,
+                        clearConfirmations = 2,
+                        token = "secret-token",
+                    ),
+                )
+            }
+
+            assertEquals(1133L, saved.locationUid)
+            val request = server.takeRequest()
+            assertEquals(
+                "PUT /api/v1/settings/alerts HTTP/1.1",
+                request.requestLine,
+            )
+            val body = request.body?.utf8().orEmpty()
+            assertTrue(body.contains(""location_uid":1133"))
+            assertTrue(body.contains(""token":"secret-token""))
+        }
+    }
+
+    @Test
+    fun providerSettingsTestDoesNotPersistAndUsesPost() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body(
+                        """{"ok":true,"active":false,"state":"clear","location_uid":1133}""",
+                    )
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(client = OkHttpClient())
+            val endpoint = DeviceEndpoint(server.hostName, server.port)
+
+            val result = runBlocking {
+                client.testAlertProviderSettings(
+                    endpoint,
+                    AlertProviderUpdate(
+                        endpoint = "https://api.example/{uid}",
+                        locationUid = 1133,
+                        locationType = "city",
+                        pollIntervalSeconds = 8.0,
+                        requestTimeoutSeconds = 7.0,
+                        rateLimitBackoffSeconds = 60.0,
+                        clearConfirmations = 2,
+                    ),
+                )
+            }
+
+            assertTrue(result.ok)
+            assertEquals("clear", result.state)
+            assertEquals(
+                "POST /api/v1/settings/alerts/test HTTP/1.1",
+                server.takeRequest().requestLine,
+            )
+        }
+    }
+
+    @Test
+    fun audioSettingsSaveUsesCanonicalPutContract() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body(
+                        """{"air_raid_alerts_enabled":false,"duck_db":-10.0,"duck_fade_seconds":1.5,"restore_fade_seconds":2.5,"alert_volume_percent":88.0,"default_restore_volume_percent":87.0,"minute_silence_volume_percent":100.0,"minute_silence_enabled":true,"minute_silence_start_time":"09:00:00","minute_silence_timezone":"Europe/Kyiv","minute_silence_catch_up_seconds":120,"minute_silence_music_fade_seconds":1.0,"alert_repeat_interval_minutes":15,"duck_only_during_announcement":true,"sample_rate_mode":"fixed","sample_rate":48000,"allowed_sample_rates":[44100,48000]}""",
+                    )
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(client = OkHttpClient())
+            val endpoint = DeviceEndpoint(server.hostName, server.port)
+
+            runBlocking {
+                client.saveAlertAudioSettings(
+                    endpoint,
+                    AlertAudioUpdate(
+                        airRaidAlertsEnabled = false,
+                        duckDb = -10.0,
+                        duckFadeSeconds = 1.5,
+                        restoreFadeSeconds = 2.5,
+                        alertVolumePercent = 88.0,
+                        defaultRestoreVolumePercent = 87.0,
+                        minuteSilenceVolumePercent = 100.0,
+                        minuteSilenceEnabled = true,
+                        minuteSilenceStartTime = "09:00:00",
+                        minuteSilenceTimezone = "Europe/Kyiv",
+                        minuteSilenceCatchUpSeconds = 120,
+                        minuteSilenceMusicFadeSeconds = 1.0,
+                        alertRepeatIntervalMinutes = 15,
+                        duckOnlyDuringAnnouncement = true,
+                    ),
+                )
+            }
+
+            val request = server.takeRequest()
+            assertEquals(
+                "PUT /api/v1/settings/audio HTTP/1.1",
+                request.requestLine,
+            )
+            val body = request.body?.utf8().orEmpty()
+            assertTrue(body.contains(""air_raid_alerts_enabled":false"))
+            assertTrue(body.contains(""duck_only_during_announcement":true"))
+        }
+    }
+
+    @Test
+    fun alertMediaUploadUsesRawMp3Payload() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body(
+                        """{"kind":"alarm_start","label":"Повітряна тривога","file_name":"alarm_start.mp3","configured":true,"size_bytes":4,"modified_unix_seconds":1770000000,"max_size_bytes":16777216,"content_type":"audio/mpeg"}""",
+                    )
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(client = OkHttpClient())
+            val endpoint = DeviceEndpoint(server.hostName, server.port)
+            val payload = byteArrayOf(0x49, 0x44, 0x33, 0x04)
+
+            val media = runBlocking {
+                client.uploadAlertMedia(
+                    endpoint = endpoint,
+                    kind = "alarm_start",
+                    bytes = payload,
+                    contentType = "audio/mpeg",
+                )
+            }
+
+            assertEquals("alarm_start", media.kind)
+            val request = server.takeRequest()
+            assertEquals(
+                "PUT /api/v1/settings/alerts/media/alarm_start HTTP/1.1",
+                request.requestLine,
+            )
+            assertEquals("audio/mpeg", request.headers["Content-Type"])
+            assertTrue(request.body?.readByteArray()?.contentEquals(payload) == true)
+        }
+    }
+
+    @Test
+    fun alertMediaResetUsesDelete() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body(
+                        """{"kind":"alarm_end","label":"Відбій тривоги","file_name":"alarm_end.mp3","configured":true,"size_bytes":1000,"modified_unix_seconds":1770000000,"max_size_bytes":16777216,"content_type":"audio/mpeg"}""",
+                    )
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(client = OkHttpClient())
+            val endpoint = DeviceEndpoint(server.hostName, server.port)
+
+            runBlocking {
+                client.resetAlertMedia(endpoint, "alarm_end")
+            }
+
+            assertEquals(
+                "DELETE /api/v1/settings/alerts/media/alarm_end HTTP/1.1",
+                server.takeRequest().requestLine,
+            )
+        }
+    }
+
+    @Test
+    fun backendErrorMessageIsPreserved() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .code(400)
+                    .body("""{"error":"provider.location_uid має бути додатним"}""")
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(client = OkHttpClient())
+            val endpoint = DeviceEndpoint(server.hostName, server.port)
+
+            val error = assertThrows(PlayerApiException::class.java) {
+                runBlocking {
+                    client.saveAlertProviderSettings(
+                        endpoint,
+                        AlertProviderUpdate(
+                            endpoint = "https://api.example/{uid}",
+                            locationUid = 0,
+                            locationType = "city",
+                            pollIntervalSeconds = 8.0,
+                            requestTimeoutSeconds = 7.0,
+                            rateLimitBackoffSeconds = 60.0,
+                            clearConfirmations = 2,
+                        ),
+                    )
+                }
+            }
+
+            assertEquals(
+                "provider.location_uid має бути додатним",
+                error.message,
             )
         }
     }
