@@ -27,7 +27,6 @@ internal class ModernNsdServiceTracker(
             }
 
             override fun onServiceLost() {
-                callbacks.remove(serviceKey)
                 onLost(DiscoveryPresenceId("nsd:$serviceKey"))
             }
 
