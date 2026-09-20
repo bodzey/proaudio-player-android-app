@@ -1,8 +1,10 @@
 package com.bodzey.proaudioplayer.ui.alerts
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
@@ -25,6 +27,7 @@ import kotlinx.coroutines.supervisorScope
 class AlertsViewModel(
     private val sessionRepository: PlayerSessionRepository,
     private val mediaImporter: AlertMediaImporter,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AlertsUiState())
@@ -85,6 +88,8 @@ class AlertsViewModel(
             val provider = result.first.getOrNull() ?: currentState.provider
             val audio = result.second.getOrNull() ?: currentState.audio
             val media = result.third.getOrNull() ?: currentState.media
+            val restoredProviderForm = restoredProviderDraft(deviceId)
+            val restoredAudioForm = restoredAudioDraft(deviceId)
             val errors = buildList {
                 result.first.exceptionOrNull()?.message?.let { add("API тривог: " + it) }
                 result.second.exceptionOrNull()?.message?.let { add("аудіопараметри: " + it) }
@@ -97,15 +102,21 @@ class AlertsViewModel(
                 provider = provider,
                 providerForm = when {
                     currentState.providerDirty -> currentState.providerForm
+                    restoredProviderForm != null -> restoredProviderForm
                     provider != null -> provider.toForm()
                     else -> null
                 },
+                providerDirty = currentState.providerDirty ||
+                    restoredProviderForm != null,
                 audio = audio,
                 audioForm = when {
                     currentState.audioDirty -> currentState.audioForm
+                    restoredAudioForm != null -> restoredAudioForm
                     audio != null -> audio.toForm()
                     else -> null
                 },
+                audioDirty = currentState.audioDirty ||
+                    restoredAudioForm != null,
                 media = media,
                 loadError = errors.takeIf { it.isNotEmpty() }?.joinToString("; "),
             )
@@ -117,19 +128,23 @@ class AlertsViewModel(
     }
 
     fun updateProviderForm(form: AlertProviderForm) {
+        val deviceId = currentDeviceId() ?: return
         _uiState.value = _uiState.value.copy(
             providerForm = form,
             providerDirty = true,
             providerMessage = null,
         )
+        persistProviderDraft(deviceId, form)
     }
 
     fun updateAudioForm(form: AlertAudioForm) {
+        val deviceId = currentDeviceId() ?: return
         _uiState.value = _uiState.value.copy(
             audioForm = form,
             audioDirty = true,
             audioMessage = null,
         )
+        persistAudioDraft(deviceId, form)
     }
 
     fun saveProvider() {
@@ -150,6 +165,7 @@ class AlertsViewModel(
                     update = update,
                 )
                 if (!isCurrentDevice(deviceId)) return@launch
+                clearProviderDraft()
                 _uiState.value = _uiState.value.copy(
                     provider = saved,
                     providerForm = saved.toForm(),
@@ -243,6 +259,7 @@ class AlertsViewModel(
                     update = update,
                 )
                 if (!isCurrentDevice(deviceId)) return@launch
+                clearAudioDraft()
                 _uiState.value = _uiState.value.copy(
                     audio = saved,
                     audioForm = saved.toForm(),
@@ -466,6 +483,139 @@ class AlertsViewModel(
         }
     }
 
+    private fun persistProviderDraft(
+        deviceId: DeviceId,
+        form: AlertProviderForm,
+    ) {
+        savedStateHandle[KEY_PROVIDER_DRAFT_DEVICE_ID] = deviceId.value
+        savedStateHandle[KEY_PROVIDER_ENDPOINT] = form.endpoint
+        savedStateHandle[KEY_PROVIDER_LOCATION_UID] = form.locationUid
+        savedStateHandle[KEY_PROVIDER_LOCATION_TYPE] = form.locationType
+        savedStateHandle[KEY_PROVIDER_POLL_INTERVAL] = form.pollIntervalSeconds
+        savedStateHandle[KEY_PROVIDER_TIMEOUT] = form.requestTimeoutSeconds
+        savedStateHandle[KEY_PROVIDER_BACKOFF] = form.rateLimitBackoffSeconds
+        savedStateHandle[KEY_PROVIDER_CLEAR_CONFIRMATIONS] = form.clearConfirmations
+    }
+
+    private fun restoredProviderDraft(
+        deviceId: DeviceId,
+    ): AlertProviderForm? {
+        if (savedStateHandle.get<String>(KEY_PROVIDER_DRAFT_DEVICE_ID) != deviceId.value) {
+            return null
+        }
+        val endpoint = savedStateHandle.get<String>(KEY_PROVIDER_ENDPOINT) ?: return null
+        val locationUid = savedStateHandle.get<String>(KEY_PROVIDER_LOCATION_UID) ?: return null
+        val locationType = savedStateHandle.get<String>(KEY_PROVIDER_LOCATION_TYPE) ?: return null
+        val pollInterval = savedStateHandle.get<String>(KEY_PROVIDER_POLL_INTERVAL) ?: return null
+        val timeout = savedStateHandle.get<String>(KEY_PROVIDER_TIMEOUT) ?: return null
+        val backoff = savedStateHandle.get<String>(KEY_PROVIDER_BACKOFF) ?: return null
+        val confirmations =
+            savedStateHandle.get<String>(KEY_PROVIDER_CLEAR_CONFIRMATIONS) ?: return null
+
+        return AlertProviderForm(
+            endpoint = endpoint,
+            locationUid = locationUid,
+            locationType = locationType,
+            token = "",
+            pollIntervalSeconds = pollInterval,
+            requestTimeoutSeconds = timeout,
+            rateLimitBackoffSeconds = backoff,
+            clearConfirmations = confirmations,
+        )
+    }
+
+    private fun clearProviderDraft() {
+        listOf(
+            KEY_PROVIDER_DRAFT_DEVICE_ID,
+            KEY_PROVIDER_ENDPOINT,
+            KEY_PROVIDER_LOCATION_UID,
+            KEY_PROVIDER_LOCATION_TYPE,
+            KEY_PROVIDER_POLL_INTERVAL,
+            KEY_PROVIDER_TIMEOUT,
+            KEY_PROVIDER_BACKOFF,
+            KEY_PROVIDER_CLEAR_CONFIRMATIONS,
+        ).forEach(savedStateHandle::remove<Any?>)
+    }
+
+    private fun persistAudioDraft(
+        deviceId: DeviceId,
+        form: AlertAudioForm,
+    ) {
+        savedStateHandle[KEY_AUDIO_DRAFT_DEVICE_ID] = deviceId.value
+        savedStateHandle[KEY_AUDIO_ENABLED] = form.airRaidAlertsEnabled
+        savedStateHandle[KEY_AUDIO_MINUTE_ENABLED] = form.minuteSilenceEnabled
+        savedStateHandle[KEY_AUDIO_DUCK_DB] = form.duckDb
+        savedStateHandle[KEY_AUDIO_DUCK_FADE] = form.duckFadeSeconds
+        savedStateHandle[KEY_AUDIO_RESTORE_FADE] = form.restoreFadeSeconds
+        savedStateHandle[KEY_AUDIO_ALERT_VOLUME] = form.alertVolumePercent
+        savedStateHandle[KEY_AUDIO_RESTORE_VOLUME] = form.defaultRestoreVolumePercent
+        savedStateHandle[KEY_AUDIO_MINUTE_VOLUME] = form.minuteSilenceVolumePercent
+        savedStateHandle[KEY_AUDIO_MINUTE_TIME] = form.minuteSilenceStartTime
+        savedStateHandle[KEY_AUDIO_TIMEZONE] = form.minuteSilenceTimezone
+        savedStateHandle[KEY_AUDIO_CATCH_UP] = form.minuteSilenceCatchUpSeconds
+        savedStateHandle[KEY_AUDIO_MINUTE_FADE] = form.minuteSilenceMusicFadeSeconds
+        savedStateHandle[KEY_AUDIO_REPEAT] = form.alertRepeatIntervalMinutes
+        savedStateHandle[KEY_AUDIO_TALKOVER] = form.duckOnlyDuringAnnouncement
+    }
+
+    private fun restoredAudioDraft(
+        deviceId: DeviceId,
+    ): AlertAudioForm? {
+        if (savedStateHandle.get<String>(KEY_AUDIO_DRAFT_DEVICE_ID) != deviceId.value) {
+            return null
+        }
+
+        return AlertAudioForm(
+            airRaidAlertsEnabled = savedStateHandle.get<Boolean>(KEY_AUDIO_ENABLED)
+                ?: return null,
+            minuteSilenceEnabled =
+                savedStateHandle.get<Boolean>(KEY_AUDIO_MINUTE_ENABLED) ?: return null,
+            duckDb = savedStateHandle.get<String>(KEY_AUDIO_DUCK_DB) ?: return null,
+            duckFadeSeconds =
+                savedStateHandle.get<String>(KEY_AUDIO_DUCK_FADE) ?: return null,
+            restoreFadeSeconds =
+                savedStateHandle.get<String>(KEY_AUDIO_RESTORE_FADE) ?: return null,
+            alertVolumePercent =
+                savedStateHandle.get<String>(KEY_AUDIO_ALERT_VOLUME) ?: return null,
+            defaultRestoreVolumePercent =
+                savedStateHandle.get<String>(KEY_AUDIO_RESTORE_VOLUME) ?: return null,
+            minuteSilenceVolumePercent =
+                savedStateHandle.get<String>(KEY_AUDIO_MINUTE_VOLUME) ?: return null,
+            minuteSilenceStartTime =
+                savedStateHandle.get<String>(KEY_AUDIO_MINUTE_TIME) ?: return null,
+            minuteSilenceTimezone =
+                savedStateHandle.get<String>(KEY_AUDIO_TIMEZONE) ?: return null,
+            minuteSilenceCatchUpSeconds =
+                savedStateHandle.get<String>(KEY_AUDIO_CATCH_UP) ?: return null,
+            minuteSilenceMusicFadeSeconds =
+                savedStateHandle.get<String>(KEY_AUDIO_MINUTE_FADE) ?: return null,
+            alertRepeatIntervalMinutes =
+                savedStateHandle.get<String>(KEY_AUDIO_REPEAT) ?: return null,
+            duckOnlyDuringAnnouncement =
+                savedStateHandle.get<Boolean>(KEY_AUDIO_TALKOVER) ?: return null,
+        )
+    }
+
+    private fun clearAudioDraft() {
+        listOf(
+            KEY_AUDIO_DRAFT_DEVICE_ID,
+            KEY_AUDIO_ENABLED,
+            KEY_AUDIO_MINUTE_ENABLED,
+            KEY_AUDIO_DUCK_DB,
+            KEY_AUDIO_DUCK_FADE,
+            KEY_AUDIO_RESTORE_FADE,
+            KEY_AUDIO_ALERT_VOLUME,
+            KEY_AUDIO_RESTORE_VOLUME,
+            KEY_AUDIO_MINUTE_VOLUME,
+            KEY_AUDIO_MINUTE_TIME,
+            KEY_AUDIO_TIMEZONE,
+            KEY_AUDIO_CATCH_UP,
+            KEY_AUDIO_MINUTE_FADE,
+            KEY_AUDIO_REPEAT,
+            KEY_AUDIO_TALKOVER,
+        ).forEach(savedStateHandle::remove<Any?>)
+    }
+
     private suspend fun <T> capture(block: suspend () -> T): Result<T> =
         try {
             Result.success(block())
@@ -476,6 +626,32 @@ class AlertsViewModel(
         }
 
     companion object {
+        private const val KEY_PROVIDER_DRAFT_DEVICE_ID = "alerts_provider_device_id"
+        private const val KEY_PROVIDER_ENDPOINT = "alerts_provider_endpoint"
+        private const val KEY_PROVIDER_LOCATION_UID = "alerts_provider_location_uid"
+        private const val KEY_PROVIDER_LOCATION_TYPE = "alerts_provider_location_type"
+        private const val KEY_PROVIDER_POLL_INTERVAL = "alerts_provider_poll_interval"
+        private const val KEY_PROVIDER_TIMEOUT = "alerts_provider_timeout"
+        private const val KEY_PROVIDER_BACKOFF = "alerts_provider_backoff"
+        private const val KEY_PROVIDER_CLEAR_CONFIRMATIONS =
+            "alerts_provider_clear_confirmations"
+
+        private const val KEY_AUDIO_DRAFT_DEVICE_ID = "alerts_audio_device_id"
+        private const val KEY_AUDIO_ENABLED = "alerts_audio_enabled"
+        private const val KEY_AUDIO_MINUTE_ENABLED = "alerts_audio_minute_enabled"
+        private const val KEY_AUDIO_DUCK_DB = "alerts_audio_duck_db"
+        private const val KEY_AUDIO_DUCK_FADE = "alerts_audio_duck_fade"
+        private const val KEY_AUDIO_RESTORE_FADE = "alerts_audio_restore_fade"
+        private const val KEY_AUDIO_ALERT_VOLUME = "alerts_audio_alert_volume"
+        private const val KEY_AUDIO_RESTORE_VOLUME = "alerts_audio_restore_volume"
+        private const val KEY_AUDIO_MINUTE_VOLUME = "alerts_audio_minute_volume"
+        private const val KEY_AUDIO_MINUTE_TIME = "alerts_audio_minute_time"
+        private const val KEY_AUDIO_TIMEZONE = "alerts_audio_timezone"
+        private const val KEY_AUDIO_CATCH_UP = "alerts_audio_catch_up"
+        private const val KEY_AUDIO_MINUTE_FADE = "alerts_audio_minute_fade"
+        private const val KEY_AUDIO_REPEAT = "alerts_audio_repeat"
+        private const val KEY_AUDIO_TALKOVER = "alerts_audio_talkover"
+
         fun factory(
             sessionRepository: PlayerSessionRepository,
             mediaImporter: AlertMediaImporter,
@@ -485,6 +661,7 @@ class AlertsViewModel(
                     AlertsViewModel(
                         sessionRepository = sessionRepository,
                         mediaImporter = mediaImporter,
+                        savedStateHandle = createSavedStateHandle(),
                     )
                 }
             }
