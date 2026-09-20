@@ -133,7 +133,6 @@ fun PlayerScreen(
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
-    val colors = LocalProAudioColors.current
     var pendingAlertMediaKind by rememberSaveable {
         mutableStateOf<String?>(null)
     }
@@ -276,12 +275,6 @@ fun PlayerScreen(
                         onResetMedia = onAlertMediaReset,
                         onResetAllMedia = onAlertMediaResetAll,
                     )
-                }
-
-                state is PlayerSessionState.Connected -> {
-                    item(key = "section-placeholder") {
-                        SectionPlaceholder(section)
-                    }
                 }
 
                 state is PlayerSessionState.Connecting -> {
@@ -900,46 +893,6 @@ private fun MasterOutputControl(
                         stringResource(R.string.master_mute)
                     },
                     color = if (master.muted) colors.danger else colors.textSoft,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionPlaceholder(
-    section: AppSection,
-) {
-    val colors = LocalProAudioColors.current
-    val title = when (section) {
-        AppSection.Player -> stringResource(R.string.nav_player)
-        AppSection.Media -> stringResource(R.string.nav_media)
-        AppSection.Radio -> stringResource(R.string.nav_radio)
-        AppSection.Alerts -> stringResource(R.string.nav_alerts)
-    }
-    val message = when (section) {
-        AppSection.Player,
-        AppSection.Media -> ""
-        AppSection.Radio -> stringResource(R.string.radio_port_pending)
-        AppSection.Alerts -> stringResource(R.string.alerts_port_pending)
-    }
-
-    ProAudioPanel(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            SectionLabel(text = title.uppercase())
-            Text(
-                text = title,
-                color = colors.text,
-                style = MaterialTheme.typography.titleLarge,
-            )
-            if (message.isNotEmpty()) {
-                Text(
-                    text = message,
-                    color = colors.textMuted,
-                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
         }
