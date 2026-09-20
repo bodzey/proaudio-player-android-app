@@ -12,6 +12,7 @@ import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
 import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
 import com.bodzey.proaudioplayer.core.api.AlertMediaFile
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
+import com.bodzey.proaudioplayer.core.api.AlertSettingsValidator
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
@@ -698,29 +699,27 @@ private fun AlertAudioSettings.toForm(): AlertAudioForm =
     )
 
 private fun AlertProviderForm.toUpdate(): AlertProviderUpdate {
-    val uid = locationUid.requiredLong("UID локації")
-    require(uid in 1..4_294_967_295L) {
-        "UID локації має бути в межах 1..4294967295"
-    }
-    return AlertProviderUpdate(
+    val update = AlertProviderUpdate(
         endpoint = endpoint.trim(),
-        locationUid = uid,
+        locationUid = locationUid.requiredLong("UID локації"),
         locationType = locationType.trim(),
         pollIntervalSeconds = pollIntervalSeconds.requiredDouble("Інтервал опитування"),
-        requestTimeoutSeconds = requestTimeoutSeconds.requiredDouble("Timeout"),
+        requestTimeoutSeconds = requestTimeoutSeconds.requiredDouble("Очікування відповіді"),
         rateLimitBackoffSeconds =
             rateLimitBackoffSeconds.requiredDouble("Пауза після HTTP 429"),
         clearConfirmations = clearConfirmations.requiredInt("Підтвердження відбою"),
         token = token.trim().takeIf { it.isNotEmpty() },
     )
+    AlertSettingsValidator.validateProvider(update)
+    return update
 }
 
-private fun AlertAudioForm.toUpdate(): AlertAudioUpdate =
-    AlertAudioUpdate(
+private fun AlertAudioForm.toUpdate(): AlertAudioUpdate {
+    val update = AlertAudioUpdate(
         airRaidAlertsEnabled = airRaidAlertsEnabled,
-        duckDb = duckDb.requiredDouble("Ducking"),
+        duckDb = duckDb.requiredDouble("Стишення музики"),
         duckFadeSeconds = duckFadeSeconds.requiredDouble("Плавне стишення"),
-        restoreFadeSeconds = restoreFadeSeconds.requiredDouble("Відновлення"),
+        restoreFadeSeconds = restoreFadeSeconds.requiredDouble("Час відновлення"),
         alertVolumePercent = alertVolumePercent.requiredDouble("Гучність ALERT"),
         defaultRestoreVolumePercent =
             defaultRestoreVolumePercent.requiredDouble("Рівень відновлення"),
@@ -732,11 +731,16 @@ private fun AlertAudioForm.toUpdate(): AlertAudioUpdate =
         minuteSilenceCatchUpSeconds =
             minuteSilenceCatchUpSeconds.requiredLong("Допустиме запізнення"),
         minuteSilenceMusicFadeSeconds =
-            minuteSilenceMusicFadeSeconds.requiredDouble("Стишення хвилини мовчання"),
+            minuteSilenceMusicFadeSeconds.requiredDouble(
+                "Стишення перед хвилиною мовчання",
+            ),
         alertRepeatIntervalMinutes =
             alertRepeatIntervalMinutes.requiredLong("Повторення тривоги"),
         duckOnlyDuringAnnouncement = duckOnlyDuringAnnouncement,
     )
+    AlertSettingsValidator.validateAudio(update)
+    return update
+}
 
 private fun AlertMediaCatalog.replace(item: AlertMediaFile): AlertMediaCatalog =
     copy(
