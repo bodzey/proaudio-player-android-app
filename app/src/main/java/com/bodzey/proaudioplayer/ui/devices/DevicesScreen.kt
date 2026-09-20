@@ -1,9 +1,11 @@
 package com.bodzey.proaudioplayer.ui.devices
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,10 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,11 +26,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bodzey.proaudioplayer.R
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
-import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import com.bodzey.proaudioplayer.core.model.DeviceId
+import com.bodzey.proaudioplayer.ui.components.ProAudioHeader
+import com.bodzey.proaudioplayer.ui.components.ProAudioPanel
+import com.bodzey.proaudioplayer.ui.components.ProAudioShell
+import com.bodzey.proaudioplayer.ui.components.StatusBadge
+import com.bodzey.proaudioplayer.ui.components.StatusBadgeState
+import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
 
 @Composable
 fun DevicesScreen(
@@ -39,55 +47,223 @@ fun DevicesScreen(
     onDemoEnabledChange: (Boolean) -> Unit,
     onDeviceSelected: (DeviceId) -> Unit,
 ) {
-    Scaffold { contentPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding)
-                .padding(horizontal = 20.dp),
+    val colors = LocalProAudioColors.current
+
+    ProAudioShell {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                top = 2.dp,
+                end = 16.dp,
+                bottom = 24.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Text(
-                text = stringResource(R.string.devices_title),
-                style = MaterialTheme.typography.headlineMedium,
-            )
-
-            if (showDemoControls) {
-                DemoControl(
-                    enabled = demoEnabled,
-                    onEnabledChange = onDemoEnabledChange,
+            item {
+                ProAudioHeader(
+                    trailing = {
+                        StatusBadge(
+                            text = if (devices.isEmpty()) {
+                                stringResource(R.string.devices_scanning)
+                            } else {
+                                stringResource(R.string.device_online)
+                            },
+                            state = if (devices.isEmpty()) {
+                                StatusBadgeState.Connecting
+                            } else {
+                                StatusBadgeState.Online
+                            },
+                        )
+                    },
                 )
-            } else {
-                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            item {
+                Column(
+                    modifier = Modifier.padding(top = 10.dp, bottom = 8.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.devices_title),
+                        color = colors.text,
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.devices_subtitle),
+                        color = colors.textSoft,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
 
             if (devices.isEmpty()) {
-                EmptyDevicesState(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                )
+                item {
+                    EmptyDevicesState()
+                }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(
-                        items = devices,
-                        key = { device -> device.id.value },
-                    ) { device ->
-                        DeviceCard(
-                            device = device,
-                            onClick = { onDeviceSelected(device.id) },
-                        )
-                    }
-
-                    item {
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
+                items(
+                    items = devices,
+                    key = { device -> device.id.value },
+                ) { device ->
+                    DeviceCard(
+                        device = device,
+                        onClick = { onDeviceSelected(device.id) },
+                    )
                 }
             }
+
+            if (showDemoControls) {
+                item {
+                    DemoControl(
+                        enabled = demoEnabled,
+                        onEnabledChange = onDemoEnabledChange,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyDevicesState() {
+    val colors = LocalProAudioColors.current
+
+    ProAudioPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 34.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                color = colors.accent,
+                strokeWidth = 2.dp,
+            )
+            Text(
+                text = stringResource(R.string.devices_searching),
+                color = colors.text,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.devices_searching_support),
+                color = colors.textMuted,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DeviceCard(
+    device: AvailableDevice,
+    onClick: () -> Unit,
+) {
+    val colors = LocalProAudioColors.current
+
+    ProAudioPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(colors.surfaceRaised, RoundedCornerShape(13.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                EqualizerGlyph()
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text(
+                    text = device.displayName,
+                    color = colors.text,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(colors.success, CircleShape),
+                    )
+                    Text(
+                        text = stringResource(R.string.device_online),
+                        color = colors.textSoft,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "•",
+                        color = colors.textMuted,
+                    )
+                    Text(
+                        text = pluralStringResource(
+                            R.plurals.device_endpoint_count,
+                            device.endpoints.size,
+                            device.endpoints.size,
+                        ),
+                        color = colors.textMuted,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+
+                Text(
+                    text = stringResource(
+                        R.string.device_api_version,
+                        device.apiMajorVersion,
+                    ),
+                    color = colors.textMuted,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontFamily = FontFamily.Monospace,
+                )
+            }
+
+            Text(
+                text = "›",
+                color = colors.accent,
+                fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Light,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EqualizerGlyph() {
+    val colors = LocalProAudioColors.current
+
+    Row(
+        modifier = Modifier.height(22.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        listOf(10, 18, 14, 22, 12).forEachIndexed { index, height ->
+            Box(
+                modifier = Modifier
+                    .size(width = 3.dp, height = height.dp)
+                    .background(
+                        if (index % 2 == 0) colors.accent else colors.textSoft,
+                        RoundedCornerShape(2.dp),
+                    ),
+            )
         }
     }
 }
@@ -97,139 +273,30 @@ private fun DemoControl(
     enabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
 ) {
+    val colors = LocalProAudioColors.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
+            .padding(top = 10.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            text = stringResource(R.string.demo_devices),
-            style = MaterialTheme.typography.bodyLarge,
-        )
+        Column {
+            Text(
+                text = stringResource(R.string.demo_devices),
+                color = colors.textSoft,
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                text = stringResource(R.string.demo_devices_hint),
+                color = colors.textMuted,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         Switch(
             checked = enabled,
             onCheckedChange = onEnabledChange,
         )
     }
-
-    HorizontalDivider()
-    Spacer(modifier = Modifier.height(12.dp))
-}
-
-@Composable
-private fun EmptyDevicesState(
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = stringResource(R.string.devices_searching),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.devices_searching_support),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun DeviceCard(
-    device: AvailableDevice,
-    onClick: () -> Unit,
-) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        text = device.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    OnlineStatus()
-                }
-
-                Text(
-                    text = stringResource(
-                        R.string.device_api_version,
-                        device.apiMajorVersion,
-                    ),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = pluralStringResource(
-                    R.plurals.device_endpoint_count,
-                    device.endpoints.size,
-                    device.endpoints.size,
-                ),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            device.endpoints
-                .sortedWith(
-                    compareBy<DeviceEndpoint> { endpoint -> endpoint.host }
-                        .thenBy { endpoint -> endpoint.port },
-                )
-                .forEach { endpoint ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = endpoint.displayValue(),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-        }
-    }
-}
-
-@Composable
-private fun OnlineStatus() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = CircleShape,
-                ),
-        )
-        Text(
-            text = stringResource(R.string.device_online),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-private fun DeviceEndpoint.displayValue(): String {
-    val formattedHost = if (':' in host) "[$host]" else host
-    return "$formattedHost:$port"
 }
