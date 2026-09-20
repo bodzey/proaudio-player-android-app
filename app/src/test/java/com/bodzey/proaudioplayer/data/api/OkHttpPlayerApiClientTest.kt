@@ -1,5 +1,6 @@
 package com.bodzey.proaudioplayer.data.api
 
+import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -80,4 +81,38 @@ class OkHttpPlayerApiClientTest {
             )
         }
     }
+    @Test
+    fun playerActionPostsNativeControlContract() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body("""{"action":"pause"}""")
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(
+                client = OkHttpClient(),
+            )
+            val endpoint = DeviceEndpoint(
+                host = server.hostName,
+                port = server.port,
+            )
+
+            runBlocking {
+                client.playerAction(endpoint, PlayerAction.Pause)
+            }
+
+            val request = server.takeRequest()
+            assertEquals(
+                "POST /api/v1/player HTTP/1.1",
+                request.requestLine,
+            )
+            assertEquals(
+                """{"action":"pause"}""",
+                request.body?.utf8(),
+            )
+        }
+    }
+
 }
