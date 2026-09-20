@@ -38,8 +38,10 @@ internal fun AlertTextField(
         enabled = enabled,
         singleLine = singleLine,
         label = { Text(label) },
-        supportingText = supportingText?.let { text ->
-            { Text(text) }
+        supportingText = if (supportingText != null) {
+            { Text(supportingText) }
+        } else {
+            null
         },
         keyboardOptions = KeyboardOptions(
             keyboardType = keyboardType,
