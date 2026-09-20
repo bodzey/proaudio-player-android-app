@@ -13,7 +13,7 @@ import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
-import com.bodzey.proaudioplayer.data.media.AndroidAlertMediaImporter
+import com.bodzey.proaudioplayer.data.media.AlertMediaImporter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +24,7 @@ import kotlinx.coroutines.supervisorScope
 
 class AlertsViewModel(
     private val sessionRepository: PlayerSessionRepository,
-    private val mediaImporter: AndroidAlertMediaImporter,
+    private val mediaImporter: AlertMediaImporter,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AlertsUiState())
@@ -466,7 +466,7 @@ class AlertsViewModel(
     companion object {
         fun factory(
             sessionRepository: PlayerSessionRepository,
-            mediaImporter: AndroidAlertMediaImporter,
+            mediaImporter: AlertMediaImporter,
         ): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
