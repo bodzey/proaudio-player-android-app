@@ -9,6 +9,7 @@ import com.bodzey.proaudioplayer.core.api.AlertMediaFile
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
+import com.bodzey.proaudioplayer.core.api.MeterFrame
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
@@ -148,6 +149,9 @@ class EndpointResolverTest {
         ): AlertMediaFile = error("Not used")
 
         override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> =
+            emptyFlow()
+
+        override fun meterEvents(endpoint: DeviceEndpoint): Flow<MeterFrame> =
             emptyFlow()
     }
 }
