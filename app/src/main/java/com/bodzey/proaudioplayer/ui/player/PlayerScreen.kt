@@ -427,6 +427,7 @@ private fun ConnectedState(
             if ("audio_outputs" in state.capabilities.features) {
                 AudioOutputCard(
                     state = outputState,
+                    blocked = state.status.priority.blocking,
                     onRefresh = onOutputRefresh,
                     onSelect = onOutputSelect,
                 )
