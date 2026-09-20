@@ -259,6 +259,20 @@ private fun RadioStationCard(
 ) {
     val colors = LocalProAudioColors.current
     val accent = stationAccent(station.id)
+    val controlDescription = when {
+        pending -> stringResource(
+            R.string.radio_connecting_station,
+            station.name,
+        )
+        active -> stringResource(
+            R.string.radio_stop_station,
+            station.name,
+        )
+        else -> stringResource(
+            R.string.radio_listen_station,
+            station.name,
+        )
+    }
 
     ProAudioPanel(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -337,20 +351,7 @@ private fun RadioStationCard(
                     .size(48.dp)
                     .semantics {
                         role = Role.Button
-                        contentDescription = when {
-                            pending -> stringResource(
-                                R.string.radio_connecting_station,
-                                station.name,
-                            )
-                            active -> stringResource(
-                                R.string.radio_stop_station,
-                                station.name,
-                            )
-                            else -> stringResource(
-                                R.string.radio_listen_station,
-                                station.name,
-                            )
-                        }
+                        contentDescription = controlDescription
                     },
                 shape = RoundedCornerShape(13.dp),
                 color = if (active) {
