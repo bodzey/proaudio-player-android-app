@@ -77,7 +77,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp-coroutines")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
-    val coilVersion = "3.6.3"
+    val coilVersion = "3.2.0"
     implementation("io.coil-kt.coil3:coil-compose:$coilVersion")
     implementation("io.coil-kt.coil3:coil-network-okhttp:$coilVersion")
 

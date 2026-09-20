@@ -31,7 +31,7 @@ class PlayerUiProjectionTest {
 
     private fun connected(player: PlayerState): PlayerSessionState.Connected =
         PlayerSessionState.Connected(
-            deviceId = DeviceId.parse("test-player"),
+            deviceId = DeviceId.parse("11111111-2222-3333-4444-555555555555"),
             displayName = "Test Player",
             endpoint = DeviceEndpoint(host = "192.168.1.10", port = 8080),
             capabilities = ApiCapabilities(1, "sse", setOf("status", "meters")),
