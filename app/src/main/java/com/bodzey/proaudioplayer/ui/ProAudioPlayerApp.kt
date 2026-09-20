@@ -29,7 +29,7 @@ fun ProAudioPlayerApp(
             demoEnabled = demoEnabled.value,
             showDemoControls = showDemoControls,
             onDemoEnabledChange = devicesViewModel::setDemoEnabled,
-            onDeviceSelected = devicesViewModel::selectDevice,
+            onDeviceSelected = playerViewModel::rememberSelectedDevice,
         )
     } else {
         val sessionState = playerViewModel.state.collectAsStateWithLifecycle()
