@@ -7,6 +7,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.RequiresApi
 import com.bodzey.proaudioplayer.core.discovery.DeviceDiscoveryEvent
 import com.bodzey.proaudioplayer.core.discovery.DeviceDiscoverySource
 import com.bodzey.proaudioplayer.core.discovery.DiscoveryPresenceId
@@ -31,7 +32,6 @@ class AndroidNsdDiscoverySource(
     }
 
     override fun events(): Flow<DeviceDiscoveryEvent> = callbackFlow {
-        val serviceCallbacks = mutableMapOf<String, NsdManager.ServiceInfoCallback>()
         val legacyServices = mutableSetOf<String>()
         val legacyQueue = ArrayDeque<NsdServiceInfo>()
         var legacyResolutionActive = false
@@ -48,13 +48,21 @@ class AndroidNsdDiscoverySource(
             )
         }
 
-        fun emitUnavailable(serviceInfo: NsdServiceInfo) {
-            trySend(
-                DeviceDiscoveryEvent.Unavailable(
-                    presenceId = serviceInfo.presenceId(),
-                ),
-            )
+        fun emitUnavailable(presenceId: DiscoveryPresenceId) {
+            trySend(DeviceDiscoveryEvent.Unavailable(presenceId))
         }
+
+        val modernTracker =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                ModernNsdServiceTracker(
+                    nsdManager = nsdManager,
+                    executor = mainExecutor,
+                    onUpdated = ::emitAvailable,
+                    onLost = ::emitUnavailable,
+                )
+            } else {
+                null
+            }
 
         lateinit var resolveNextLegacyService: () -> Unit
         resolveNextLegacyService = {
@@ -62,14 +70,14 @@ class AndroidNsdDiscoverySource(
                 var nextService: NsdServiceInfo? = null
                 while (legacyQueue.isNotEmpty() && nextService == null) {
                     val candidate = legacyQueue.removeFirst()
-                    if (candidate.serviceKey() in legacyServices) {
+                    if (candidate.legacyServiceKey() in legacyServices) {
                         nextService = candidate
                     }
                 }
 
                 if (nextService != null) {
                     legacyResolutionActive = true
-                    val resolvingKey = nextService.serviceKey()
+                    val resolvingKey = nextService.legacyServiceKey()
 
                     @Suppress("DEPRECATION")
                     val resolveListener = object : NsdManager.ResolveListener {
@@ -101,55 +109,20 @@ class AndroidNsdDiscoverySource(
             }
         }
 
-        fun registerModernServiceTracking(serviceInfo: NsdServiceInfo) {
-            val serviceKey = serviceInfo.serviceKey()
-            if (serviceCallbacks.containsKey(serviceKey)) {
-                return
-            }
-
-            val callback = object : NsdManager.ServiceInfoCallback {
-                override fun onServiceUpdated(updatedInfo: NsdServiceInfo) {
-                    emitAvailable(updatedInfo)
-                }
-
-                override fun onServiceLost() {
-                    trySend(
-                        DeviceDiscoveryEvent.Unavailable(
-                            presenceId = DiscoveryPresenceId("nsd:$serviceKey"),
-                        ),
-                    )
-                }
-
-                override fun onServiceInfoCallbackRegistrationFailed(errorCode: Int) {
-                    serviceCallbacks.remove(serviceKey)
-                }
-
-                override fun onServiceInfoCallbackUnregistered() = Unit
-            }
-
-            serviceCallbacks[serviceKey] = callback
-
-            try {
-                nsdManager.registerServiceInfoCallback(
-                    serviceInfo,
-                    mainExecutor,
-                    callback,
-                )
-            } catch (_: RuntimeException) {
-                serviceCallbacks.remove(serviceKey)
-            }
-        }
-
         val discoveryListener = object : NsdManager.DiscoveryListener {
             override fun onDiscoveryStarted(serviceType: String) = Unit
 
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    registerModernServiceTracking(serviceInfo)
+                    try {
+                        modernTracker?.track(serviceInfo)
+                    } catch (_: RuntimeException) {
+                        // Continue discovery if tracking one service fails.
+                    }
                     return
                 }
 
-                val serviceKey = serviceInfo.serviceKey()
+                val serviceKey = serviceInfo.legacyServiceKey()
                 if (legacyServices.add(serviceKey)) {
                     legacyQueue.addLast(serviceInfo)
                     resolveNextLegacyService()
@@ -161,9 +134,9 @@ class AndroidNsdDiscoverySource(
                     return
                 }
 
-                val serviceKey = serviceInfo.serviceKey()
+                val serviceKey = serviceInfo.legacyServiceKey()
                 legacyServices.remove(serviceKey)
-                emitUnavailable(serviceInfo)
+                emitUnavailable(serviceInfo.legacyPresenceId())
             }
 
             override fun onDiscoveryStopped(serviceType: String) = Unit
@@ -200,13 +173,7 @@ class AndroidNsdDiscoverySource(
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                serviceCallbacks.values.forEach { callback ->
-                    try {
-                        nsdManager.unregisterServiceInfoCallback(callback)
-                    } catch (_: RuntimeException) {
-                        // Callback may have failed registration or already been removed.
-                    }
-                }
+                modernTracker?.stop()
             }
 
             multicastLock?.releaseSafely()
@@ -230,10 +197,14 @@ class AndroidNsdDiscoverySource(
     @Suppress("DEPRECATION")
     private fun NsdServiceInfo.hostAddressesCompat(): List<String> =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            hostAddresses.mapNotNull { address -> address.hostAddress }
+            modernHostAddresses()
         } else {
             listOfNotNull(host?.hostAddress)
         }
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private fun NsdServiceInfo.modernHostAddresses(): List<String> =
+        hostAddresses.mapNotNull { address -> address.hostAddress }
 
     private fun NsdServiceInfo.toDiscoveredDevice(observedAt: Instant): DiscoveredDevice? {
         val advertisement = NsdTxtAdvertisementParser.parse(
@@ -271,17 +242,19 @@ class AndroidNsdDiscoverySource(
     }
 
     private fun NsdServiceInfo.presenceId(): DiscoveryPresenceId =
-        DiscoveryPresenceId("nsd:${serviceKey()}")
-
-    private fun NsdServiceInfo.serviceKey(): String {
-        val networkKey = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            network?.networkHandle?.toString() ?: "any"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            DiscoveryPresenceId(
+                "nsd:$serviceName|$serviceType|${network?.networkHandle ?: "any"}",
+            )
         } else {
-            "legacy"
+            legacyPresenceId()
         }
 
-        return "$serviceName|$serviceType|$networkKey"
-    }
+    private fun NsdServiceInfo.legacyPresenceId(): DiscoveryPresenceId =
+        DiscoveryPresenceId("nsd:${legacyServiceKey()}")
+
+    private fun NsdServiceInfo.legacyServiceKey(): String =
+        "$serviceName|$serviceType|legacy"
 
     private fun WifiManager.MulticastLock.releaseSafely() {
         if (isHeld) {
