@@ -59,9 +59,21 @@ class AlertsViewModel(
 
         viewModelScope.launch {
             val result = supervisorScope {
-                val provider = async { capture { sessionRepository.alertProviderSettings() } }
-                val audio = async { capture { sessionRepository.alertAudioSettings() } }
-                val media = async { capture { sessionRepository.alertMedia() } }
+                val provider = async {
+                    capture {
+                        sessionRepository.alertProviderSettings(deviceId)
+                    }
+                }
+                val audio = async {
+                    capture {
+                        sessionRepository.alertAudioSettings(deviceId)
+                    }
+                }
+                val media = async {
+                    capture {
+                        sessionRepository.alertMedia(deviceId)
+                    }
+                }
                 Triple(provider.await(), audio.await(), media.await())
             }
 
@@ -376,7 +388,7 @@ class AlertsViewModel(
                 }
                 if (!isCurrentDevice(deviceId)) return@launch
 
-                val refreshed = sessionRepository.alertMedia()
+                val refreshed = sessionRepository.alertMedia(deviceId)
                 if (!isCurrentDevice(deviceId)) return@launch
 
                 _uiState.value = _uiState.value.copy(
@@ -391,7 +403,7 @@ class AlertsViewModel(
             } catch (error: Exception) {
                 if (isCurrentDevice(deviceId)) {
                     val refreshed = capture {
-                        sessionRepository.alertMedia()
+                        sessionRepository.alertMedia(deviceId)
                     }.getOrNull()
                     _uiState.value = _uiState.value.copy(
                         media = refreshed ?: _uiState.value.media,
