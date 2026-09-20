@@ -10,5 +10,7 @@ interface PlayerApiClient {
     suspend fun playerAction(endpoint: DeviceEndpoint, action: PlayerAction)
     suspend fun setMasterVolume(endpoint: DeviceEndpoint, percent: Double)
     suspend fun setMasterMute(endpoint: DeviceEndpoint, db: Double, muted: Boolean)
+    suspend fun radioStations(endpoint: DeviceEndpoint): List<RadioStation>
+    suspend fun playStream(endpoint: DeviceEndpoint, url: String)
     fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus>
 }
