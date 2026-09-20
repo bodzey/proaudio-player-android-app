@@ -3,8 +3,12 @@ package com.bodzey.proaudioplayer.core.session
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
+import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
 import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
+import com.bodzey.proaudioplayer.core.api.AlertMediaFile
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
+import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
+import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
@@ -115,6 +119,33 @@ class EndpointResolverTest {
         override suspend fun alertMedia(
             endpoint: DeviceEndpoint,
         ): AlertMediaCatalog = error("Not used")
+
+        override suspend fun saveAlertProviderSettings(
+            endpoint: DeviceEndpoint,
+            update: AlertProviderUpdate,
+        ): AlertProviderSettings = error("Not used")
+
+        override suspend fun testAlertProviderSettings(
+            endpoint: DeviceEndpoint,
+            update: AlertProviderUpdate,
+        ): AlertProviderTestResult = error("Not used")
+
+        override suspend fun saveAlertAudioSettings(
+            endpoint: DeviceEndpoint,
+            update: AlertAudioUpdate,
+        ): AlertAudioSettings = error("Not used")
+
+        override suspend fun uploadAlertMedia(
+            endpoint: DeviceEndpoint,
+            kind: String,
+            bytes: ByteArray,
+            contentType: String,
+        ): AlertMediaFile = error("Not used")
+
+        override suspend fun resetAlertMedia(
+            endpoint: DeviceEndpoint,
+            kind: String,
+        ): AlertMediaFile = error("Not used")
 
         override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> =
             emptyFlow()
