@@ -4,22 +4,11 @@ import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.bodzey.proaudioplayer.core.media.AlertMediaImporter
+import com.bodzey.proaudioplayer.core.media.ImportedAlertMedia
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-
-data class ImportedAlertMedia(
-    val displayName: String,
-    val contentType: String,
-    val bytes: ByteArray,
-)
-
-interface AlertMediaImporter {
-    suspend fun read(
-        uriText: String,
-        maxBytes: Long,
-    ): ImportedAlertMedia
-}
 
 class AndroidAlertMediaImporter(
     context: Context,
