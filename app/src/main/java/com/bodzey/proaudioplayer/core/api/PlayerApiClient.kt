@@ -12,6 +12,32 @@ interface PlayerApiClient {
     suspend fun setMasterMute(endpoint: DeviceEndpoint, db: Double, muted: Boolean)
     suspend fun radioStations(endpoint: DeviceEndpoint): List<RadioStation>
     suspend fun playStream(endpoint: DeviceEndpoint, url: String)
+    suspend fun audioOutputs(endpoint: DeviceEndpoint): List<AudioOutputDescriptor>
+    suspend fun selectAudioOutput(
+        endpoint: DeviceEndpoint,
+        id: String,
+    ): AudioOutputDescriptor
+    suspend fun library(endpoint: DeviceEndpoint): List<String>
+    suspend fun refreshLibrary(endpoint: DeviceEndpoint)
+    suspend fun playLibraryPath(
+        endpoint: DeviceEndpoint,
+        path: String,
+    )
+    suspend fun playlists(endpoint: DeviceEndpoint): List<String>
+    suspend fun loadPlaylist(
+        endpoint: DeviceEndpoint,
+        name: String,
+    )
+    suspend fun queue(endpoint: DeviceEndpoint): List<QueueItem>
+    suspend fun playQueueItem(
+        endpoint: DeviceEndpoint,
+        position: Int,
+    )
+    suspend fun removeQueueItem(
+        endpoint: DeviceEndpoint,
+        position: Int,
+    )
+    suspend fun clearQueue(endpoint: DeviceEndpoint)
     suspend fun alertProviderSettings(endpoint: DeviceEndpoint): AlertProviderSettings
     suspend fun alertAudioSettings(endpoint: DeviceEndpoint): AlertAudioSettings
     suspend fun alertMedia(endpoint: DeviceEndpoint): AlertMediaCatalog
