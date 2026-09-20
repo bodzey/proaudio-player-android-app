@@ -44,6 +44,14 @@ class ApiJsonParserTest {
               "name":"ProAudio Player",
               "volume":89.1,
               "muted":false,
+              "priority":{
+                "active":true,
+                "blocking":true
+              },
+              "mpd":{
+                "is_stream":true,
+                "stream_url":"https://radio.example/live"
+              },
               "audio_levels":{
                 "master":{
                   "volume":42.5,
@@ -81,9 +89,45 @@ class ApiJsonParserTest {
         assertEquals(-17.25, status.master.db ?: Double.NaN, 0.001)
         assertEquals(89.1, status.music.volumePercent, 0.001)
         assertFalse(status.music.muted)
+        assertTrue(status.priority.active)
+        assertTrue(status.priority.blocking)
+        assertTrue(status.mpd.isStream)
+        assertEquals("https://radio.example/live", status.mpd.streamUrl)
         assertEquals("Spotify Connect", status.player.source)
         assertEquals("Track", status.player.title)
         assertTrue(status.player.controls.pause)
         assertTrue(status.player.controls.previous)
     }
+    @Test
+    fun radioDirectoryParsesNormalizedStations() {
+        val stations = parser.radioStations(
+            """
+            {
+              "source":"radio-browser",
+              "items":[
+                {
+                  "id":"station-1",
+                  "name":"Test FM",
+                  "url":"https://radio.example/live",
+                  "homepage":"https://radio.example/",
+                  "favicon":"https://radio.example/logo.png",
+                  "tags":["pop","ukrainian"],
+                  "codec":"MP3",
+                  "bitrate":192,
+                  "votes":42
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(1, stations.size)
+        assertEquals("station-1", stations.single().id)
+        assertEquals("Test FM", stations.single().name)
+        assertEquals(listOf("pop", "ukrainian"), stations.single().tags)
+        assertEquals("MP3", stations.single().codec)
+        assertEquals(192, stations.single().bitrate)
+        assertEquals(42L, stations.single().votes)
+    }
+
 }
