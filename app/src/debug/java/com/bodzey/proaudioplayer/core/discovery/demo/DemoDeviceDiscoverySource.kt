@@ -75,6 +75,7 @@ class DemoDeviceDiscoverySource(
                     ),
                 ),
                 observedAt = observedAt,
+                persistable = false,
             )
     }
 }
