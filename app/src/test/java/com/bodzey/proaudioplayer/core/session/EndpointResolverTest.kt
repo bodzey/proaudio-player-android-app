@@ -2,6 +2,7 @@ package com.bodzey.proaudioplayer.core.session
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
+import com.bodzey.proaudioplayer.core.api.AudioOutputDescriptor
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
 import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
 import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
@@ -13,6 +14,7 @@ import com.bodzey.proaudioplayer.core.api.MeterFrame
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
+import com.bodzey.proaudioplayer.core.api.QueueItem
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
@@ -107,6 +109,55 @@ class EndpointResolverTest {
         override suspend fun playStream(
             endpoint: DeviceEndpoint,
             url: String,
+        ) = error("Not used")
+
+        override suspend fun audioOutputs(
+            endpoint: DeviceEndpoint,
+        ): List<AudioOutputDescriptor> = error("Not used")
+
+        override suspend fun selectAudioOutput(
+            endpoint: DeviceEndpoint,
+            id: String,
+        ): AudioOutputDescriptor = error("Not used")
+
+        override suspend fun library(
+            endpoint: DeviceEndpoint,
+        ): List<String> = error("Not used")
+
+        override suspend fun refreshLibrary(
+            endpoint: DeviceEndpoint,
+        ) = error("Not used")
+
+        override suspend fun playLibraryPath(
+            endpoint: DeviceEndpoint,
+            path: String,
+        ) = error("Not used")
+
+        override suspend fun playlists(
+            endpoint: DeviceEndpoint,
+        ): List<String> = error("Not used")
+
+        override suspend fun loadPlaylist(
+            endpoint: DeviceEndpoint,
+            name: String,
+        ) = error("Not used")
+
+        override suspend fun queue(
+            endpoint: DeviceEndpoint,
+        ): List<QueueItem> = error("Not used")
+
+        override suspend fun playQueueItem(
+            endpoint: DeviceEndpoint,
+            position: Int,
+        ) = error("Not used")
+
+        override suspend fun removeQueueItem(
+            endpoint: DeviceEndpoint,
+            position: Int,
+        ) = error("Not used")
+
+        override suspend fun clearQueue(
+            endpoint: DeviceEndpoint,
         ) = error("Not used")
 
         override suspend fun alertProviderSettings(
