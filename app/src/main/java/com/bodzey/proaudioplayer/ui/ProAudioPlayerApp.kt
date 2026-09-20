@@ -29,9 +29,11 @@ fun ProAudioPlayerApp(
     } else {
         val sessionState = playerViewModel.state.collectAsStateWithLifecycle()
         val pendingAction = playerViewModel.pendingAction.collectAsStateWithLifecycle()
+        val actionError = playerViewModel.actionError.collectAsStateWithLifecycle()
         PlayerScreen(
             state = sessionState.value,
             pendingAction = pendingAction.value,
+            actionError = actionError.value,
             onAction = playerViewModel::performAction,
             onBack = playerViewModel::close,
         )
