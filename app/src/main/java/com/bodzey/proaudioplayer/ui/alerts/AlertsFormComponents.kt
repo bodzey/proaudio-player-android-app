@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.minimumInteractiveComponentSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
@@ -59,7 +59,7 @@ internal fun AlertSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .minimumInteractiveComponentSize()
+            .heightIn(min = 48.dp)
             .toggleable(
                 value = checked,
                 enabled = enabled,
