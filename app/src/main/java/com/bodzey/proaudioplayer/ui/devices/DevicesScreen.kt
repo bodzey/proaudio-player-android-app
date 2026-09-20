@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.bodzey.proaudioplayer.R
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
+import com.bodzey.proaudioplayer.core.model.DeviceId
 
 @Composable
 fun DevicesScreen(
@@ -36,7 +37,7 @@ fun DevicesScreen(
     demoEnabled: Boolean,
     showDemoControls: Boolean,
     onDemoEnabledChange: (Boolean) -> Unit,
-    onDeviceSelected: (com.bodzey.proaudioplayer.core.model.DeviceId) -> Unit,
+    onDeviceSelected: (DeviceId) -> Unit,
 ) {
     Scaffold { contentPadding ->
         Column(
