@@ -83,10 +83,7 @@ class OkHttpPlayerApiClient(
         endpoint: DeviceEndpoint,
         url: String,
     ) {
-        val encodedUrl = kotlinx.serialization.json.Json.encodeToString(
-            kotlinx.serialization.serializer<String>(),
-            url,
-        )
+        val encodedUrl = kotlinx.serialization.json.JsonPrimitive(url).toString()
         postJson(
             endpoint = endpoint,
             path = "/api/v1/streams/play",
