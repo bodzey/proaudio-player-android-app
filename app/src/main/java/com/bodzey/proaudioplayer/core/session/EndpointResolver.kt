@@ -5,8 +5,8 @@ import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 
 data class ResolvedEndpoint(
@@ -19,31 +19,43 @@ class EndpointResolver(
 ) {
     suspend fun resolve(device: AvailableDevice): ResolvedEndpoint =
         supervisorScope {
-            val probes = device.endpoints
-                .sortedWith(endpointPreference())
-                .map { endpoint ->
-                    async {
-                        try {
-                            val health = apiClient.health(endpoint)
-                            requireCompatibleHealth(
-                                health = health,
-                                expectedApiMajorVersion = device.apiMajorVersion,
-                            )
-                            Result.success(ResolvedEndpoint(endpoint, health))
-                        } catch (error: CancellationException) {
-                            throw error
-                        } catch (error: Exception) {
-                            Result.failure(error)
-                        }
-                    }
-                }
+            val endpoints = device.endpoints.sortedWith(endpointPreference())
+            val results = Channel<Result<ResolvedEndpoint>>(capacity = endpoints.size)
 
-            val results = probes.awaitAll()
-            results.firstNotNullOfOrNull { result -> result.getOrNull() }
-                ?: throw EndpointResolutionException(
-                    deviceName = device.displayName,
-                    failures = results.mapNotNull { result -> result.exceptionOrNull() },
-                )
+            val jobs = endpoints.map { endpoint ->
+                launch {
+                    val result = try {
+                        val health = apiClient.health(endpoint)
+                        requireCompatibleHealth(
+                            health = health,
+                            expectedApiMajorVersion = device.apiMajorVersion,
+                        )
+                        Result.success(ResolvedEndpoint(endpoint, health))
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        Result.failure(error)
+                    }
+                    results.send(result)
+                }
+            }
+
+            val failures = mutableListOf<Throwable>()
+            repeat(endpoints.size) {
+                val result = results.receive()
+                result.getOrNull()?.let { resolved ->
+                    jobs.forEach { job -> job.cancel() }
+                    results.close()
+                    return@supervisorScope resolved
+                }
+                result.exceptionOrNull()?.let(failures::add)
+            }
+
+            results.close()
+            throw EndpointResolutionException(
+                deviceName = device.displayName,
+                failures = failures,
+            )
         }
 
     private fun requireCompatibleHealth(
