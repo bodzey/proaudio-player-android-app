@@ -2,6 +2,7 @@ package com.bodzey.proaudioplayer.data.api
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
+import com.bodzey.proaudioplayer.core.api.AudioLevelState
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
@@ -49,10 +50,25 @@ internal class ApiJsonParser(
         val player = root["player"]?.jsonObject
             ?: throw ApiProtocolException("Missing player object")
 
-        return PlayerStatus(
-            name = root.requiredString("name"),
+        val music = AudioLevelState(
             volumePercent = root.requiredDouble("volume"),
             muted = root.requiredBoolean("muted"),
+        )
+        val masterObject = root["audio_levels"]
+            ?.jsonObject
+            ?.get("master")
+            ?.jsonObject
+        val master = AudioLevelState(
+            volumePercent = masterObject?.optionalDouble("volume")
+                ?: music.volumePercent,
+            muted = masterObject?.optionalBoolean("muted")
+                ?: music.muted,
+        )
+
+        return PlayerStatus(
+            name = root.requiredString("name"),
+            master = master,
+            music = music,
             player = PlayerState(
                 source = player.stringOrEmpty("source"),
                 backend = player.stringOrEmpty("backend"),
@@ -105,6 +121,12 @@ internal class ApiJsonParser(
     private fun JsonObject.requiredBoolean(key: String): Boolean =
         this[key]?.jsonPrimitive?.booleanOrNull
             ?: throw ApiProtocolException("Missing or invalid '" + key + "'")
+
+    private fun JsonObject.optionalDouble(key: String): Double? =
+        this[key]?.jsonPrimitive?.doubleOrNull
+
+    private fun JsonObject.optionalBoolean(key: String): Boolean? =
+        this[key]?.jsonPrimitive?.booleanOrNull
 
     private fun JsonObject.stringOrEmpty(key: String): String =
         this[key]?.jsonPrimitive?.contentOrNull.orEmpty()
