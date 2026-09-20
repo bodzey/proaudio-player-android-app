@@ -363,4 +363,22 @@ class ApiJsonParserTest {
         assertEquals("Track", queue.single().title)
     }
 
+    @Test
+    fun mixerStateParsesLogicalBuses() {
+        val mixer = parser.mixerState(
+            """
+            {
+              "music":{"name":"proaudio_player_music","volume":80.0,"db":-5.8,"muted":false},
+              "alert":{"name":"proaudio_player_alert","volume":70.0,"db":-9.3,"muted":true},
+              "master":{"name":"proaudio_player_master","volume":90.0,"db":-2.7,"muted":false}
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(80.0, mixer.music.volumePercent, 0.001)
+        assertEquals(-5.8, mixer.music.db ?: Double.NaN, 0.001)
+        assertTrue(mixer.alert.muted)
+        assertEquals(-2.7, mixer.master.db ?: Double.NaN, 0.001)
+    }
+
 }
