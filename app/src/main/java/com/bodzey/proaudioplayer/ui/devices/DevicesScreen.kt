@@ -36,7 +36,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bodzey.proaudioplayer.R
-import com.bodzey.proaudioplayer.core.device.AvailableDevice
+import com.bodzey.proaudioplayer.core.device.DeviceListEntry
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.ui.components.ProAudioHeader
 import com.bodzey.proaudioplayer.ui.components.ProAudioPanel
@@ -47,7 +47,7 @@ import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
 
 @Composable
 fun DevicesScreen(
-    devices: List<AvailableDevice>,
+    devices: List<DeviceListEntry>,
     demoEnabled: Boolean,
     showDemoControls: Boolean,
     onDemoEnabledChange: (Boolean) -> Unit,
@@ -70,12 +70,12 @@ fun DevicesScreen(
                 ProAudioHeader(
                     trailing = {
                         StatusBadge(
-                            text = if (devices.isEmpty()) {
+                            text = if (devices.none { device -> device.online }) {
                                 stringResource(R.string.devices_scanning)
                             } else {
                                 stringResource(R.string.device_online)
                             },
-                            state = if (devices.isEmpty()) {
+                            state = if (devices.none { device -> device.online }) {
                                 StatusBadgeState.Connecting
                             } else {
                                 StatusBadgeState.Online
@@ -166,7 +166,7 @@ private fun EmptyDevicesState() {
 
 @Composable
 private fun DeviceCard(
-    device: AvailableDevice,
+    device: DeviceListEntry,
     onClick: () -> Unit,
 ) {
     val colors = LocalProAudioColors.current
@@ -209,10 +209,19 @@ private fun DeviceCard(
                     Box(
                         modifier = Modifier
                             .size(7.dp)
-                            .background(colors.success, CircleShape),
+                            .background(
+                                if (device.online) colors.success else colors.textMuted,
+                                CircleShape,
+                            ),
                     )
                     Text(
-                        text = stringResource(R.string.device_online),
+                        text = stringResource(
+                            if (device.online) {
+                                R.string.device_online
+                            } else {
+                                R.string.device_offline
+                            },
+                        ),
                         color = colors.textSoft,
                         style = MaterialTheme.typography.bodyMedium,
                     )
