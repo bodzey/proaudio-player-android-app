@@ -13,10 +13,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -94,6 +90,7 @@ fun LogicalMixerCard(
                         label = stringResource(R.string.mixer_music),
                         target = MixerTarget.Music,
                         level = state.mixer.music,
+                        levelOverride = state.levelOverrides[MixerTarget.Music],
                         enabled = !blocked && state.pendingTarget == null,
                         pending = state.pendingTarget == MixerTarget.Music,
                         onLevelChange = onLevelChange,
@@ -103,6 +100,7 @@ fun LogicalMixerCard(
                         label = stringResource(R.string.mixer_alert),
                         target = MixerTarget.Alert,
                         level = state.mixer.alert,
+                        levelOverride = state.levelOverrides[MixerTarget.Alert],
                         enabled = !blocked && state.pendingTarget == null,
                         pending = state.pendingTarget == MixerTarget.Alert,
                         onLevelChange = onLevelChange,
@@ -121,7 +119,9 @@ fun LogicalMixerCard(
 
             OutlinedButton(
                 onClick = onRefresh,
-                enabled = !state.loading && state.pendingTarget == null,
+                enabled = !state.loading &&
+                    state.pendingTarget == null &&
+                    state.levelOverrides.isEmpty(),
             ) {
                 Text(stringResource(R.string.mixer_refresh))
             }
@@ -134,20 +134,20 @@ private fun MixerChannel(
     label: String,
     target: MixerTarget,
     level: AudioLevelState,
+    levelOverride: Double?,
     enabled: Boolean,
     pending: Boolean,
     onLevelChange: (MixerTarget, Double) -> Unit,
     onMuteChange: (MixerTarget, Boolean) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
-    val serverDb = (level.db ?: -60.0).coerceIn(-60.0, 0.0).toFloat()
-    var draftDb by remember(target, serverDb) {
-        mutableFloatStateOf(serverDb)
-    }
+    val displayedDb = (levelOverride ?: level.db ?: -60.0)
+        .coerceIn(-60.0, 0.0)
+        .toFloat()
     val description = stringResource(
         R.string.mixer_level_description,
         label,
-        draftDb,
+        displayedDb,
     )
 
     Column(
@@ -173,7 +173,7 @@ private fun MixerChannel(
                 text = if (level.muted) {
                     stringResource(R.string.player_muted)
                 } else {
-                    String.format(Locale.ROOT, "%.1f dB", draftDb)
+                    String.format(Locale.ROOT, "%.1f dB", displayedDb)
                 },
                 color = if (level.muted) colors.danger else colors.text,
                 style = MaterialTheme.typography.labelLarge,
@@ -182,12 +182,9 @@ private fun MixerChannel(
         }
 
         Slider(
-            value = draftDb,
+            value = displayedDb,
             onValueChange = { value ->
-                draftDb = value
-            },
-            onValueChangeFinished = {
-                onLevelChange(target, draftDb.toDouble())
+                onLevelChange(target, value.toDouble())
             },
             enabled = enabled && !pending,
             valueRange = -60f..0f,
@@ -202,7 +199,10 @@ private fun MixerChannel(
             onClick = {
                 onMuteChange(target, !level.muted)
             },
-            enabled = enabled && !pending && level.db != null,
+            enabled = enabled &&
+                !pending &&
+                levelOverride == null &&
+                level.db != null,
         ) {
             if (pending) {
                 CircularProgressIndicator(

@@ -9,5 +9,6 @@ data class MixerUiState(
     val loading: Boolean = false,
     val mixer: MixerState? = null,
     val pendingTarget: MixerTarget? = null,
+    val levelOverrides: Map<MixerTarget, Double> = emptyMap(),
     val error: String? = null,
 )
