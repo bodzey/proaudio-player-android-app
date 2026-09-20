@@ -187,4 +187,91 @@ class OkHttpPlayerApiClientTest {
         }
     }
 
+    @Test
+    fun radioStationsUseCanonicalDirectoryEndpoint() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body(
+                        """
+                        {
+                          "source":"radio-browser",
+                          "items":[
+                            {
+                              "id":"station-1",
+                              "name":"Test FM",
+                              "url":"https://radio.example/live",
+                              "homepage":null,
+                              "favicon":null,
+                              "tags":[],
+                              "codec":"AAC",
+                              "bitrate":128,
+                              "votes":7
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                    )
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(
+                client = OkHttpClient(),
+            )
+            val endpoint = DeviceEndpoint(
+                host = server.hostName,
+                port = server.port,
+            )
+
+            val stations = runBlocking {
+                client.radioStations(endpoint)
+            }
+
+            assertEquals(1, stations.size)
+            assertEquals("Test FM", stations.single().name)
+            assertEquals(
+                "GET /api/v1/radio/stations HTTP/1.1",
+                server.takeRequest().requestLine,
+            )
+        }
+    }
+
+    @Test
+    fun playStreamEscapesUrlInJsonBody() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body("""{"playing":"https://radio.example/live"}""")
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(
+                client = OkHttpClient(),
+            )
+            val endpoint = DeviceEndpoint(
+                host = server.hostName,
+                port = server.port,
+            )
+
+            runBlocking {
+                client.playStream(
+                    endpoint,
+                    "https://radio.example/live?name=\"quoted\"",
+                )
+            }
+
+            val request = server.takeRequest()
+            assertEquals(
+                "POST /api/v1/streams/play HTTP/1.1",
+                request.requestLine,
+            )
+            assertEquals(
+                """{"url":"https://radio.example/live?name=\"quoted\""}""",
+                request.body?.utf8(),
+            )
+        }
+    }
+
 }
