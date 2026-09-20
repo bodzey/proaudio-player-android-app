@@ -152,10 +152,10 @@ private fun ConnectedState(
             )
             StatusRow(
                 label = stringResource(R.string.player_volume),
-                value = if (state.status.muted) {
+                value = if (state.status.master.muted) {
                     stringResource(R.string.player_muted)
                 } else {
-                    formatVolume(state.status.volumePercent)
+                    formatVolume(state.status.master.volumePercent)
                 },
             )
         }
