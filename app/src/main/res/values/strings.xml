@@ -32,9 +32,9 @@
     <string name="master_output">MASTER OUTPUT</string>
 
     <plurals name="device_endpoint_count">
-        <item quantity="one">%1$d endpoint</item>
-        <item quantity="few">%1$d endpoints</item>
-        <item quantity="many">%1$d endpoints</item>
-        <item quantity="other">%1$d endpoints</item>
+        <item quantity="one">%1$d мережева адреса</item>
+        <item quantity="few">%1$d мережеві адреси</item>
+        <item quantity="many">%1$d мережевих адрес</item>
+        <item quantity="other">%1$d мережевої адреси</item>
     </plurals>
 </resources>
