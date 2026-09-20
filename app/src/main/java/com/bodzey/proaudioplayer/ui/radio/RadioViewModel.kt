@@ -1,13 +1,17 @@
 package com.bodzey.proaudioplayer.ui.radio
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.bodzey.proaudioplayer.core.api.RadioStation
+import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,9 +19,24 @@ import kotlinx.coroutines.launch
 
 class RadioViewModel(
     private val sessionRepository: PlayerSessionRepository,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(RadioUiState())
+    private val restoredDraftDeviceId: DeviceId? =
+        savedStateHandle.get<String>(KEY_CUSTOM_URL_DEVICE_ID)
+            ?.let { value -> runCatching { DeviceId.parse(value) }.getOrNull() }
+
+    private val _uiState = MutableStateFlow(
+        RadioUiState(
+            deviceId = sessionRepository.selectedDeviceId.value,
+            customUrl = savedStateHandle.get<String>(KEY_CUSTOM_URL)
+                .orEmpty()
+                .takeIf {
+                    restoredDraftDeviceId == sessionRepository.selectedDeviceId.value
+                }
+                .orEmpty(),
+        ),
+    )
     val uiState: StateFlow<RadioUiState> = _uiState.asStateFlow()
 
     fun ensureLoaded(force: Boolean = false) {
@@ -31,25 +50,26 @@ class RadioViewModel(
             return
         }
 
-        val preservedStations =
-            if (current.deviceId == deviceId) current.stations else emptyList()
-        val preservedCustomUrl =
-            if (current.deviceId == deviceId) current.customUrl else ""
+        val sameDevice = current.deviceId == deviceId
+        val customUrl = if (sameDevice) current.customUrl else restoredUrlFor(deviceId)
 
         _uiState.value = current.copy(
             deviceId = deviceId,
-            stations = preservedStations,
+            stations = if (sameDevice) current.stations else emptyList(),
             loading = true,
             loadError = null,
-            customUrl = preservedCustomUrl,
+            customUrl = customUrl,
             pendingUrl = null,
             feedback = null,
         )
+        persistCustomUrl(deviceId, customUrl)
 
         viewModelScope.launch {
             try {
-                val stations = sessionRepository.radioStations()
-                if (sessionRepository.selectedDeviceId.value == deviceId) {
+                val stations = sessionRepository.radioStations(
+                    expectedDeviceId = deviceId,
+                )
+                if (isCurrentDevice(deviceId)) {
                     _uiState.value = _uiState.value.copy(
                         deviceId = deviceId,
                         stations = stations,
@@ -61,11 +81,14 @@ class RadioViewModel(
                         },
                     )
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
-                if (sessionRepository.selectedDeviceId.value == deviceId) {
+                if (isCurrentDevice(deviceId)) {
                     _uiState.value = _uiState.value.copy(
                         loading = false,
-                        loadError = error.message ?: "Не вдалося завантажити каталог радіо",
+                        loadError = error.message
+                            ?: "Не вдалося завантажити каталог радіо",
                     )
                 }
             }
@@ -77,10 +100,13 @@ class RadioViewModel(
     }
 
     fun setCustomUrl(value: String) {
+        val deviceId = sessionRepository.selectedDeviceId.value ?: return
         _uiState.value = _uiState.value.copy(
+            deviceId = deviceId,
             customUrl = value,
             feedback = null,
         )
+        persistCustomUrl(deviceId, value)
     }
 
     fun toggleStation(station: RadioStation) {
@@ -88,8 +114,10 @@ class RadioViewModel(
         if (!canStartPlayback(connected)) return
         if (_uiState.value.pendingUrl != null) return
 
+        val deviceId = connected.deviceId
         val activeUrl = activeRadioStreamUrl(connected.status)
         runStreamAction(
+            deviceId = deviceId,
             url = station.url,
             successMessage = if (isSameRadioStream(activeUrl, station.url)) {
                 "Зупинено: " + station.name
@@ -98,9 +126,12 @@ class RadioViewModel(
             },
         ) {
             if (isSameRadioStream(activeUrl, station.url)) {
-                sessionRepository.stopPlayback()
+                sessionRepository.stopPlayback(deviceId)
             } else {
-                sessionRepository.playStream(station.url)
+                sessionRepository.playStream(
+                    expectedDeviceId = deviceId,
+                    url = station.url,
+                )
             }
         }
     }
@@ -110,6 +141,7 @@ class RadioViewModel(
         if (!canStartPlayback(connected)) return
         if (_uiState.value.pendingUrl != null) return
 
+        val deviceId = connected.deviceId
         val url = _uiState.value.customUrl.trim()
         if (url.isEmpty()) {
             _uiState.value = _uiState.value.copy(
@@ -122,10 +154,14 @@ class RadioViewModel(
         }
 
         runStreamAction(
+            deviceId = deviceId,
             url = url,
             successMessage = "Власний потік запущено",
         ) {
-            sessionRepository.playStream(url)
+            sessionRepository.playStream(
+                expectedDeviceId = deviceId,
+                url = url,
+            )
         }
     }
 
@@ -142,7 +178,9 @@ class RadioViewModel(
         return connected
     }
 
-    private fun canStartPlayback(connected: PlayerSessionState.Connected): Boolean {
+    private fun canStartPlayback(
+        connected: PlayerSessionState.Connected,
+    ): Boolean {
         if (connected.status.priority.blocking) {
             _uiState.value = _uiState.value.copy(
                 feedback = RadioFeedback(
@@ -165,6 +203,7 @@ class RadioViewModel(
     }
 
     private fun runStreamAction(
+        deviceId: DeviceId,
         url: String,
         successMessage: String,
         block: suspend () -> Unit,
@@ -176,34 +215,68 @@ class RadioViewModel(
         viewModelScope.launch {
             try {
                 block()
-                _uiState.value = _uiState.value.copy(
-                    feedback = RadioFeedback(
-                        message = successMessage,
-                        isError = false,
-                    ),
-                )
+                if (isCurrentDevice(deviceId)) {
+                    _uiState.value = _uiState.value.copy(
+                        feedback = RadioFeedback(
+                            message = successMessage,
+                            isError = false,
+                        ),
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    feedback = RadioFeedback(
-                        message = error.message ?: "Не вдалося змінити радіопотік",
-                        isError = true,
-                    ),
-                )
+                if (isCurrentDevice(deviceId)) {
+                    _uiState.value = _uiState.value.copy(
+                        feedback = RadioFeedback(
+                            message = error.message
+                                ?: "Не вдалося змінити радіопотік",
+                            isError = true,
+                        ),
+                    )
+                }
             } finally {
-                _uiState.value = _uiState.value.copy(
-                    pendingUrl = null,
-                )
+                if (isCurrentDevice(deviceId)) {
+                    _uiState.value = _uiState.value.copy(
+                        pendingUrl = null,
+                    )
+                }
             }
         }
     }
 
+    private fun isCurrentDevice(deviceId: DeviceId): Boolean =
+        sessionRepository.selectedDeviceId.value == deviceId &&
+            _uiState.value.deviceId == deviceId
+
+    private fun restoredUrlFor(deviceId: DeviceId): String =
+        if (restoredDraftDeviceId == deviceId) {
+            savedStateHandle.get<String>(KEY_CUSTOM_URL).orEmpty()
+        } else {
+            ""
+        }
+
+    private fun persistCustomUrl(
+        deviceId: DeviceId,
+        value: String,
+    ) {
+        savedStateHandle[KEY_CUSTOM_URL_DEVICE_ID] = deviceId.value
+        savedStateHandle[KEY_CUSTOM_URL] = value
+    }
+
     companion object {
+        private const val KEY_CUSTOM_URL = "radio_custom_url"
+        private const val KEY_CUSTOM_URL_DEVICE_ID = "radio_custom_url_device_id"
+
         fun factory(
             sessionRepository: PlayerSessionRepository,
         ): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
-                    RadioViewModel(sessionRepository)
+                    RadioViewModel(
+                        sessionRepository = sessionRepository,
+                        savedStateHandle = createSavedStateHandle(),
+                    )
                 }
             }
     }
