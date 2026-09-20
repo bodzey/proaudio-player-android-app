@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -152,17 +153,11 @@ fun PlayerScreen(
             }
 
             item {
-                Surface(
+                OutlinedButton(
                     onClick = onBack,
-                    shape = RoundedCornerShape(9.dp),
-                    color = colors.surfaceRaised.copy(alpha = 0.9f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
                 ) {
                     Text(
                         text = "‹  " + stringResource(R.string.back_to_players),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        color = colors.textSoft,
-                        style = MaterialTheme.typography.labelLarge,
                     )
                 }
             }
@@ -776,18 +771,16 @@ private fun MasterOutputControl(
                 ),
             )
 
-            Surface(
+            OutlinedButton(
                 onClick = { onMuteChange(!master.muted) },
                 enabled = !muteBusy && volumeOverride == null && master.db != null,
-                shape = RoundedCornerShape(9.dp),
-                color = if (master.muted) {
-                    colors.danger.copy(alpha = 0.10f)
-                } else {
-                    colors.surfaceRaised
-                },
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (master.muted) colors.danger.copy(alpha = 0.55f) else colors.borderStrong,
+                    if (master.muted) {
+                        colors.danger.copy(alpha = 0.55f)
+                    } else {
+                        colors.borderStrong
+                    },
                 ),
             ) {
                 Text(
@@ -796,9 +789,7 @@ private fun MasterOutputControl(
                     } else {
                         stringResource(R.string.master_mute)
                     },
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
                     color = if (master.muted) colors.danger else colors.textSoft,
-                    style = MaterialTheme.typography.labelLarge,
                 )
             }
         }
