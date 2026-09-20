@@ -1,5 +1,6 @@
 package com.bodzey.proaudioplayer.core.api
 
+import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.URI
@@ -43,33 +44,45 @@ object NetworkStreamValidator {
 
     private fun isUnsafeLiteralAddress(host: String): Boolean {
         parseIpv4(host)?.let { octets ->
-            val first = octets[0]
-            val second = octets[1]
-            return first == 0 ||
-                first == 10 ||
-                first == 127 ||
-                first in 224..239 ||
-                (first == 169 && second == 254) ||
-                (first == 172 && second in 16..31) ||
-                (first == 192 && second == 168)
+            return isUnsafeIpv4(octets)
         }
 
         if (':' !in host) {
             return false
         }
 
-        val address = runCatching { InetAddress.getByName(host) }.getOrNull()
-            as? Inet6Address
-            ?: return false
-        val bytes = address.address
-        val uniqueLocal = bytes.isNotEmpty() &&
-            (bytes[0].toInt() and 0xFE) == 0xFC
+        return when (val address =
+            runCatching { InetAddress.getByName(host) }.getOrNull()
+        ) {
+            is Inet4Address -> {
+                parseIpv4(address.hostAddress)
+                    ?.let(::isUnsafeIpv4)
+                    ?: false
+            }
+            is Inet6Address -> {
+                val bytes = address.address
+                val uniqueLocal = bytes.isNotEmpty() &&
+                    (bytes[0].toInt() and 0xFE) == 0xFC
+                address.isLoopbackAddress ||
+                    address.isAnyLocalAddress ||
+                    address.isMulticastAddress ||
+                    address.isLinkLocalAddress ||
+                    uniqueLocal
+            }
+            else -> false
+        }
+    }
 
-        return address.isLoopbackAddress ||
-            address.isAnyLocalAddress ||
-            address.isMulticastAddress ||
-            address.isLinkLocalAddress ||
-            uniqueLocal
+    private fun isUnsafeIpv4(octets: IntArray): Boolean {
+        val first = octets[0]
+        val second = octets[1]
+        return first == 0 ||
+            first == 10 ||
+            first == 127 ||
+            first in 224..239 ||
+            (first == 169 && second == 254) ||
+            (first == 172 && second in 16..31) ||
+            (first == 192 && second == 168)
     }
 
     private fun parseIpv4(host: String): IntArray? {
