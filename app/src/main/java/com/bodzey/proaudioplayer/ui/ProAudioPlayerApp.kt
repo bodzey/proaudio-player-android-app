@@ -7,6 +7,7 @@ import com.bodzey.proaudioplayer.ui.alerts.AlertsViewModel
 import com.bodzey.proaudioplayer.ui.devices.DevicesScreen
 import com.bodzey.proaudioplayer.ui.devices.DevicesViewModel
 import com.bodzey.proaudioplayer.ui.meter.MeterViewModel
+import com.bodzey.proaudioplayer.ui.output.OutputViewModel
 import com.bodzey.proaudioplayer.ui.player.PlayerScreen
 import com.bodzey.proaudioplayer.ui.player.PlayerViewModel
 import com.bodzey.proaudioplayer.ui.radio.RadioViewModel
@@ -16,6 +17,7 @@ fun ProAudioPlayerApp(
     devicesViewModel: DevicesViewModel,
     playerViewModel: PlayerViewModel,
     meterViewModel: MeterViewModel,
+    outputViewModel: OutputViewModel,
     radioViewModel: RadioViewModel,
     alertsViewModel: AlertsViewModel,
     showDemoControls: Boolean,
@@ -41,6 +43,7 @@ fun ProAudioPlayerApp(
         val masterMuteBusy = playerViewModel.masterMuteBusy.collectAsStateWithLifecycle()
         val masterVolumeOverride =
             playerViewModel.masterVolumeOverride.collectAsStateWithLifecycle()
+        val outputState = outputViewModel.uiState.collectAsStateWithLifecycle()
         val radioState = radioViewModel.uiState.collectAsStateWithLifecycle()
         val alertsState = alertsViewModel.uiState.collectAsStateWithLifecycle()
         val connected = sessionState.value is com.bodzey.proaudioplayer.core.session.PlayerSessionState.Connected
@@ -51,6 +54,15 @@ fun ProAudioPlayerApp(
             connected,
         ) {
             when {
+                section.value == AppSection.Player && connected -> {
+                    val connectedState = sessionState.value as?
+                        com.bodzey.proaudioplayer.core.session.PlayerSessionState.Connected
+                    if (connectedState != null &&
+                        "audio_outputs" in connectedState.capabilities.features
+                    ) {
+                        outputViewModel.ensureLoaded()
+                    }
+                }
                 section.value == AppSection.Radio && connected ->
                     radioViewModel.ensureLoaded()
                 section.value == AppSection.Alerts && connected ->
@@ -68,10 +80,13 @@ fun ProAudioPlayerApp(
             radioState = radioState.value,
             alertsState = alertsState.value,
             meterState = meterViewModel.state,
+            outputState = outputState.value,
             onSectionSelected = playerViewModel::selectSection,
             onAction = playerViewModel::performAction,
             onMasterVolumeChange = playerViewModel::setMasterVolume,
             onMasterMuteChange = playerViewModel::setMasterMuted,
+            onOutputRefresh = outputViewModel::refresh,
+            onOutputSelect = outputViewModel::select,
             onRadioRefresh = radioViewModel::refresh,
             onRadioStationToggle = radioViewModel::toggleStation,
             onRadioCustomUrlChange = radioViewModel::setCustomUrl,
