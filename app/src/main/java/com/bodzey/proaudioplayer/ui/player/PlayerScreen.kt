@@ -21,10 +21,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -43,10 +50,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bodzey.proaudioplayer.R
+import com.bodzey.proaudioplayer.core.api.AudioLevelState
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
+import com.bodzey.proaudioplayer.ui.AppSection
+import com.bodzey.proaudioplayer.ui.components.PrimaryNavigation
 import com.bodzey.proaudioplayer.ui.components.ProAudioHeader
 import com.bodzey.proaudioplayer.ui.components.ProAudioPanel
 import com.bodzey.proaudioplayer.ui.components.ProAudioShell
@@ -59,9 +69,14 @@ import java.util.Locale
 @Composable
 fun PlayerScreen(
     state: PlayerSessionState,
+    section: AppSection,
     pendingAction: PlayerAction?,
+    masterControlBusy: Boolean,
     actionError: String?,
+    onSectionSelected: (AppSection) -> Unit,
     onAction: (PlayerAction) -> Unit,
+    onMasterVolumeCommitted: (Double) -> Unit,
+    onMasterMuteChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -117,6 +132,13 @@ fun PlayerScreen(
                 }
             }
 
+            item {
+                PrimaryNavigation(
+                    selected = section,
+                    onSelected = onSectionSelected,
+                )
+            }
+
             if (actionError != null) {
                 item {
                     ActionError(message = actionError)
@@ -124,22 +146,36 @@ fun PlayerScreen(
             }
 
             item {
-                when (state) {
-                    PlayerSessionState.NoSelection -> Unit
-                    is PlayerSessionState.Connecting -> ConnectingState(state)
-                    is PlayerSessionState.Connected -> ConnectedState(
-                        state = state,
-                        pendingAction = pendingAction,
-                        onAction = onAction,
-                    )
-                    is PlayerSessionState.Offline -> MessageState(
-                        title = stringResource(R.string.player_offline),
-                        message = stringResource(R.string.player_offline_support),
-                    )
-                    is PlayerSessionState.Failed -> MessageState(
-                        title = state.displayName,
-                        message = state.message,
-                    )
+                when {
+                    state is PlayerSessionState.Connected && section == AppSection.Player ->
+                        ConnectedState(
+                            state = state,
+                            pendingAction = pendingAction,
+                            masterControlBusy = masterControlBusy,
+                            onAction = onAction,
+                            onMasterVolumeCommitted = onMasterVolumeCommitted,
+                            onMasterMuteChange = onMasterMuteChange,
+                        )
+
+                    state is PlayerSessionState.Connected ->
+                        SectionPlaceholder(section)
+
+                    state is PlayerSessionState.Connecting ->
+                        ConnectingState(state)
+
+                    state is PlayerSessionState.Offline ->
+                        MessageState(
+                            title = stringResource(R.string.player_offline),
+                            message = stringResource(R.string.player_offline_support),
+                        )
+
+                    state is PlayerSessionState.Failed ->
+                        MessageState(
+                            title = state.displayName,
+                            message = state.message,
+                        )
+
+                    else -> Unit
                 }
             }
         }
@@ -181,7 +217,10 @@ private fun ConnectingState(
 private fun ConnectedState(
     state: PlayerSessionState.Connected,
     pendingAction: PlayerAction?,
+    masterControlBusy: Boolean,
     onAction: (PlayerAction) -> Unit,
+    onMasterVolumeCommitted: (Double) -> Unit,
+    onMasterMuteChange: (Boolean) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
     val player = state.status.player
@@ -204,45 +243,12 @@ private fun ConnectedState(
             }
         }
 
-        ProAudioPanel(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column {
-                        SectionLabel(text = stringResource(R.string.master_output))
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(R.string.player_volume),
-                            color = colors.text,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    }
-                    Text(
-                        text = if (state.status.master.muted) {
-                            stringResource(R.string.player_muted)
-                        } else {
-                            formatVolume(state.status.master.volumePercent)
-                        },
-                        color = if (state.status.master.muted) colors.danger else colors.text,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontFamily = FontFamily.Monospace,
-                    )
-                }
-
-                VolumeRail(
-                    percent = state.status.master.volumePercent.toFloat(),
-                    muted = state.status.master.muted,
-                )
-            }
-        }
+        MasterOutputControl(
+            master = state.status.master,
+            busy = masterControlBusy,
+            onVolumeCommitted = onMasterVolumeCommitted,
+            onMuteChange = onMasterMuteChange,
+        )
 
         Row(
             modifier = Modifier
@@ -627,45 +633,142 @@ private fun TransportGlyph(
 }
 
 @Composable
-private fun VolumeRail(
-    percent: Float,
-    muted: Boolean,
+private fun MasterOutputControl(
+    master: AudioLevelState,
+    busy: Boolean,
+    onVolumeCommitted: (Double) -> Unit,
+    onMuteChange: (Boolean) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
-    val normalized = (percent / 100f).coerceIn(0f, 1f)
+    var sliderValue by remember { mutableFloatStateOf(master.volumePercent.toFloat()) }
+    var dragging by remember { mutableStateOf(false) }
 
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(18.dp),
-    ) {
-        val trackHeight = 4.dp.toPx()
-        val thumbRadius = 7.dp.toPx()
-        val centerY = size.height / 2f
-        val usableWidth = (size.width - thumbRadius * 2f).coerceAtLeast(0f)
-        val startX = thumbRadius
-        val endX = startX + usableWidth
-        val thumbX = startX + usableWidth * normalized
-
-        drawRoundRect(
-            color = colors.surfaceInset,
-            topLeft = Offset(startX, centerY - trackHeight / 2f),
-            size = Size(usableWidth, trackHeight),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f),
-        )
-        if (!muted && normalized > 0f) {
-            drawRoundRect(
-                color = colors.blueAccent,
-                topLeft = Offset(startX, centerY - trackHeight / 2f),
-                size = Size((thumbX - startX).coerceAtLeast(0f), trackHeight),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f),
-            )
+    LaunchedEffect(master.volumePercent, busy) {
+        if (!dragging && !busy) {
+            sliderValue = master.volumePercent.toFloat()
         }
-        drawCircle(
-            color = if (muted) colors.textMuted else colors.text,
-            radius = thumbRadius,
-            center = Offset(thumbX, centerY),
-        )
+    }
+
+    ProAudioPanel(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    SectionLabel(text = stringResource(R.string.master_output))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.player_volume),
+                        color = colors.text,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+
+                Text(
+                    text = if (master.muted) {
+                        stringResource(R.string.player_muted)
+                    } else {
+                        formatVolume(sliderValue.toDouble())
+                    },
+                    color = if (master.muted) colors.danger else colors.text,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = FontFamily.Monospace,
+                )
+            }
+
+            Slider(
+                value = sliderValue.coerceIn(0f, 100f),
+                onValueChange = { value ->
+                    dragging = true
+                    sliderValue = value
+                },
+                onValueChangeFinished = {
+                    dragging = false
+                    onVolumeCommitted(sliderValue.toDouble())
+                },
+                enabled = !busy,
+                valueRange = 0f..100f,
+                colors = SliderDefaults.colors(
+                    thumbColor = colors.text,
+                    activeTrackColor = colors.blueAccent,
+                    inactiveTrackColor = colors.surfaceInset,
+                    disabledThumbColor = colors.textMuted,
+                    disabledActiveTrackColor = colors.blueAccent.copy(alpha = 0.4f),
+                    disabledInactiveTrackColor = colors.surfaceInset,
+                ),
+            )
+
+            Surface(
+                onClick = { onMuteChange(!master.muted) },
+                enabled = !busy && master.db != null,
+                shape = RoundedCornerShape(9.dp),
+                color = if (master.muted) {
+                    colors.danger.copy(alpha = 0.10f)
+                } else {
+                    colors.surfaceRaised
+                },
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (master.muted) colors.danger.copy(alpha = 0.55f) else colors.borderStrong,
+                ),
+            ) {
+                Text(
+                    text = if (master.muted) {
+                        stringResource(R.string.master_unmute)
+                    } else {
+                        stringResource(R.string.master_mute)
+                    },
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                    color = if (master.muted) colors.danger else colors.textSoft,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionPlaceholder(
+    section: AppSection,
+) {
+    val colors = LocalProAudioColors.current
+    val title = when (section) {
+        AppSection.Player -> stringResource(R.string.nav_player)
+        AppSection.Radio -> stringResource(R.string.nav_radio)
+        AppSection.Alerts -> stringResource(R.string.nav_alerts)
+    }
+    val message = when (section) {
+        AppSection.Player -> ""
+        AppSection.Radio -> stringResource(R.string.radio_port_pending)
+        AppSection.Alerts -> stringResource(R.string.alerts_port_pending)
+    }
+
+    ProAudioPanel(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            SectionLabel(text = title.uppercase())
+            Text(
+                text = title,
+                color = colors.text,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            if (message.isNotEmpty()) {
+                Text(
+                    text = message,
+                    color = colors.textMuted,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
     }
 }
 
