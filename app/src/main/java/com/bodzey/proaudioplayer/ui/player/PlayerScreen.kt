@@ -26,12 +26,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -71,11 +66,12 @@ fun PlayerScreen(
     state: PlayerSessionState,
     section: AppSection,
     pendingAction: PlayerAction?,
-    masterControlBusy: Boolean,
+    masterMuteBusy: Boolean,
+    masterVolumeOverride: Double?,
     actionError: String?,
     onSectionSelected: (AppSection) -> Unit,
     onAction: (PlayerAction) -> Unit,
-    onMasterVolumeCommitted: (Double) -> Unit,
+    onMasterVolumeChange: (Double) -> Unit,
     onMasterMuteChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -151,9 +147,10 @@ fun PlayerScreen(
                         ConnectedState(
                             state = state,
                             pendingAction = pendingAction,
-                            masterControlBusy = masterControlBusy,
+                            masterMuteBusy = masterMuteBusy,
+                            masterVolumeOverride = masterVolumeOverride,
                             onAction = onAction,
-                            onMasterVolumeCommitted = onMasterVolumeCommitted,
+                            onMasterVolumeChange = onMasterVolumeChange,
                             onMasterMuteChange = onMasterMuteChange,
                         )
 
@@ -217,9 +214,10 @@ private fun ConnectingState(
 private fun ConnectedState(
     state: PlayerSessionState.Connected,
     pendingAction: PlayerAction?,
-    masterControlBusy: Boolean,
+    masterMuteBusy: Boolean,
+    masterVolumeOverride: Double?,
     onAction: (PlayerAction) -> Unit,
-    onMasterVolumeCommitted: (Double) -> Unit,
+    onMasterVolumeChange: (Double) -> Unit,
     onMasterMuteChange: (Boolean) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
@@ -245,8 +243,9 @@ private fun ConnectedState(
 
         MasterOutputControl(
             master = state.status.master,
-            busy = masterControlBusy,
-            onVolumeCommitted = onMasterVolumeCommitted,
+            muteBusy = masterMuteBusy,
+            volumeOverride = masterVolumeOverride,
+            onVolumeChange = onMasterVolumeChange,
             onMuteChange = onMasterMuteChange,
         )
 
@@ -635,19 +634,14 @@ private fun TransportGlyph(
 @Composable
 private fun MasterOutputControl(
     master: AudioLevelState,
-    busy: Boolean,
-    onVolumeCommitted: (Double) -> Unit,
+    muteBusy: Boolean,
+    volumeOverride: Double?,
+    onVolumeChange: (Double) -> Unit,
     onMuteChange: (Boolean) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
-    var sliderValue by remember { mutableFloatStateOf(master.volumePercent.toFloat()) }
-    var dragging by remember { mutableStateOf(false) }
-
-    LaunchedEffect(master.volumePercent, busy) {
-        if (!dragging && !busy) {
-            sliderValue = master.volumePercent.toFloat()
-        }
-    }
+    val displayedPercent = (volumeOverride ?: master.volumePercent)
+        .coerceIn(0.0, 100.0)
 
     ProAudioPanel(
         modifier = Modifier.fillMaxWidth(),
@@ -675,7 +669,7 @@ private fun MasterOutputControl(
                     text = if (master.muted) {
                         stringResource(R.string.player_muted)
                     } else {
-                        formatVolume(sliderValue.toDouble())
+                        formatVolume(displayedPercent)
                     },
                     color = if (master.muted) colors.danger else colors.text,
                     style = MaterialTheme.typography.titleLarge,
@@ -684,30 +678,21 @@ private fun MasterOutputControl(
             }
 
             Slider(
-                value = sliderValue.coerceIn(0f, 100f),
+                value = displayedPercent.toFloat(),
                 onValueChange = { value ->
-                    dragging = true
-                    sliderValue = value
+                    onVolumeChange(value.toDouble())
                 },
-                onValueChangeFinished = {
-                    dragging = false
-                    onVolumeCommitted(sliderValue.toDouble())
-                },
-                enabled = !busy,
                 valueRange = 0f..100f,
                 colors = SliderDefaults.colors(
                     thumbColor = colors.text,
                     activeTrackColor = colors.blueAccent,
                     inactiveTrackColor = colors.surfaceInset,
-                    disabledThumbColor = colors.textMuted,
-                    disabledActiveTrackColor = colors.blueAccent.copy(alpha = 0.4f),
-                    disabledInactiveTrackColor = colors.surfaceInset,
                 ),
             )
 
             Surface(
                 onClick = { onMuteChange(!master.muted) },
-                enabled = !busy && master.db != null,
+                enabled = !muteBusy && master.db != null,
                 shape = RoundedCornerShape(9.dp),
                 color = if (master.muted) {
                     colors.danger.copy(alpha = 0.10f)
