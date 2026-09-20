@@ -16,7 +16,7 @@ import com.bodzey.proaudioplayer.core.api.AlertSettingsValidator
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
-import com.bodzey.proaudioplayer.data.media.AlertMediaImporter
+import com.bodzey.proaudioplayer.core.media.AlertMediaImporter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
