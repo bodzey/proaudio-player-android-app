@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -100,8 +102,16 @@ fun ProAudioShell(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            content()
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = 840.dp)
+                    .fillMaxWidth(),
+            ) {
+                content()
+            }
         }
     }
 }
@@ -147,8 +157,7 @@ fun ProAudioHeader(
                     text = "NETWORK STREAMING PLAYER",
                     color = colors.textMuted,
                     style = MaterialTheme.typography.labelMedium,
-                    fontSize = 8.sp,
-                    letterSpacing = 1.2.sp,
+                    letterSpacing = 1.0.sp,
                 )
             }
         }
