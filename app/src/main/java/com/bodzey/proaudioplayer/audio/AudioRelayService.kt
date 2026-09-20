@@ -34,11 +34,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
-import okio.BufferedSink
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 class AudioRelayService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -46,14 +47,17 @@ class AudioRelayService : Service() {
     private val client = OkHttpClient.Builder()
         .retryOnConnectionFailure(false)
         .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.MILLISECONDS)
-        .writeTimeout(0, TimeUnit.MILLISECONDS)
-        .callTimeout(0, TimeUnit.MILLISECONDS)
+        .readTimeout(3, TimeUnit.SECONDS)
+        .writeTimeout(3, TimeUnit.SECONDS)
+        .callTimeout(5, TimeUnit.SECONDS)
         .build()
 
     private var relayJob: Job? = null
     private var projection: MediaProjection? = null
     private var recorder: AudioRecord? = null
+
+    @Volatile
+    private var activeCall: Call? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -93,8 +97,13 @@ class AudioRelayService : Service() {
             ?.let { runCatching { DeviceEndpoint.Transport.valueOf(it) }.getOrNull() }
             ?: DeviceEndpoint.Transport.HTTP
 
-        if (resultCode != Activity.RESULT_OK || resultData == null || host.isBlank() || port !in 1..65535) {
-            stopRelay()
+        if (
+            resultCode != Activity.RESULT_OK ||
+            resultData == null ||
+            host.isBlank() ||
+            port !in 1..65535
+        ) {
+            cleanupRelay(cancelJob = false)
             stopSelf()
             return
         }
@@ -132,20 +141,20 @@ class AudioRelayService : Service() {
             AudioFormat.ENCODING_PCM_FLOAT,
         )
         if (minBufferBytes <= 0) {
-            stopRelay()
+            cleanupRelay(cancelJob = false)
             stopSelf()
             return
         }
 
         val audioRecord = AudioRecord.Builder()
             .setAudioFormat(audioFormat)
-            .setBufferSizeInBytes(max(minBufferBytes, FRAME_BYTES * 4))
+            .setBufferSizeInBytes(max(minBufferBytes, CHUNK_BYTES * 4))
             .setAudioPlaybackCaptureConfig(captureConfig)
             .build()
 
         if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
             audioRecord.release()
-            stopRelay()
+            cleanupRelay(cancelJob = false)
             stopSelf()
             return
         }
@@ -158,7 +167,7 @@ class AudioRelayService : Service() {
             try {
                 stream(endpoint, audioRecord)
             } finally {
-                stopRelay()
+                cleanupRelay(cancelJob = false)
                 stopSelf()
             }
         }
@@ -169,66 +178,119 @@ class AudioRelayService : Service() {
         endpoint: DeviceEndpoint,
         audioRecord: AudioRecord,
     ) {
-        val request = Request.Builder()
-            .url(endpoint.apiUrl("/api/v1/audio/network"))
-            .header("X-ProAudio-Sample-Format", "float32le")
-            .header("X-ProAudio-Sample-Rate", SAMPLE_RATE.toString())
-            .header("X-ProAudio-Channels", CHANNELS.toString())
-            .post(
-                object : RequestBody() {
-                    override fun contentType() = PCM_MEDIA_TYPE
+        val sessionId = startSession(endpoint)
+        try {
+            val samples = FloatArray(CHUNK_SAMPLES)
+            val payload = ByteArray(CHUNK_BYTES)
+            val byteBuffer = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN)
 
-                    override fun contentLength(): Long = -1L
-
-                    override fun isOneShot(): Boolean = true
-
-                    override fun writeTo(sink: BufferedSink) {
-                        val samples = FloatArray(FRAME_SAMPLES)
-                        val payload = ByteArray(FRAME_BYTES)
-                        val byteBuffer = ByteBuffer.wrap(payload)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-
-                        while (running.get()) {
-                            val read = audioRecord.read(
-                                samples,
-                                0,
-                                samples.size,
-                                AudioRecord.READ_BLOCKING,
-                            )
-                            if (read <= 0) {
-                                if (running.get()) {
-                                    throw IllegalStateException("AudioPlaybackCapture read failed: $read")
-                                }
-                                break
-                            }
-
-                            byteBuffer.clear()
-                            repeat(read) { index ->
-                                byteBuffer.putFloat(samples[index])
-                            }
-                            val byteCount = read * Float.SIZE_BYTES
-                            sink.write(payload, 0, byteCount)
-                            sink.emitCompleteSegments()
-                        }
+            while (running.get()) {
+                val read = audioRecord.read(
+                    samples,
+                    0,
+                    samples.size,
+                    AudioRecord.READ_BLOCKING,
+                )
+                if (read <= 0) {
+                    if (running.get()) {
+                        throw IllegalStateException("AudioPlaybackCapture read failed: $read")
                     }
-                },
-            )
+                    break
+                }
+
+                val sampleCount = read - (read % CHANNELS)
+                if (sampleCount == 0) {
+                    continue
+                }
+
+                byteBuffer.clear()
+                repeat(sampleCount) { index ->
+                    byteBuffer.putFloat(samples[index])
+                }
+                sendFrame(
+                    endpoint = endpoint,
+                    sessionId = sessionId,
+                    bytes = payload,
+                    byteCount = sampleCount * Float.SIZE_BYTES,
+                )
+            }
+        } finally {
+            stopSession(endpoint, sessionId)
+        }
+    }
+
+    private fun startSession(endpoint: DeviceEndpoint): Long {
+        val request = Request.Builder()
+            .url(endpoint.apiUrl("/api/v1/audio/network/start"))
+            .post(EMPTY_BODY)
             .build()
 
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful && running.get()) {
+        execute(request).use { response ->
+            if (!response.isSuccessful) {
                 throw IllegalStateException(
-                    "Player rejected network audio: HTTP ${response.code}",
+                    "Player rejected network audio start: HTTP ${response.code}",
+                )
+            }
+            return JSONObject(response.body.string()).getLong("session_id")
+        }
+    }
+
+    private fun sendFrame(
+        endpoint: DeviceEndpoint,
+        sessionId: Long,
+        bytes: ByteArray,
+        byteCount: Int,
+    ) {
+        val request = Request.Builder()
+            .url(endpoint.apiUrl("/api/v1/audio/network/frame"))
+            .header("X-ProAudio-Session", sessionId.toString())
+            .post(bytes.toRequestBody(PCM_MEDIA_TYPE, 0, byteCount))
+            .build()
+
+        execute(request).use { response ->
+            if (response.code != 204) {
+                throw IllegalStateException(
+                    "Player rejected network audio frame: HTTP ${response.code}",
                 )
             }
         }
     }
 
-    private fun stopRelay() {
-        if (!running.compareAndSet(true, false)) {
-            _active.value = false
-            return
+    private fun stopSession(
+        endpoint: DeviceEndpoint,
+        sessionId: Long,
+    ) {
+        val request = Request.Builder()
+            .url(endpoint.apiUrl("/api/v1/audio/network/stop"))
+            .header("X-ProAudio-Session", sessionId.toString())
+            .post(EMPTY_BODY)
+            .build()
+
+        runCatching {
+            execute(request).close()
         }
+    }
+
+    private fun execute(request: Request): okhttp3.Response {
+        val call = client.newCall(request)
+        activeCall = call
+        return try {
+            call.execute()
+        } finally {
+            if (activeCall === call) {
+                activeCall = null
+            }
+        }
+    }
+
+    private fun stopRelay() {
+        cleanupRelay(cancelJob = true)
+    }
+
+    private fun cleanupRelay(cancelJob: Boolean) {
+        running.set(false)
+        activeCall?.cancel()
+        activeCall = null
 
         recorder?.let { audioRecord ->
             runCatching { audioRecord.stop() }
@@ -236,16 +298,23 @@ class AudioRelayService : Service() {
         }
         recorder = null
 
-        projection?.stop()
+        val activeProjection = projection
         projection = null
+        if (activeProjection != null) {
+            runCatching { activeProjection.stop() }
+        }
 
-        relayJob?.cancel()
+        val job = relayJob
         relayJob = null
+        if (cancelJob) {
+            job?.cancel()
+        }
+
         _active.value = false
     }
 
     override fun onDestroy() {
-        stopRelay()
+        cleanupRelay(cancelJob = true)
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -328,12 +397,13 @@ class AudioRelayService : Service() {
 
         private const val SAMPLE_RATE = 48_000
         private const val CHANNELS = 2
-        private const val FRAME_MILLIS = 20
-        private const val FRAMES_PER_CHUNK = SAMPLE_RATE * FRAME_MILLIS / 1000
-        private const val FRAME_SAMPLES = FRAMES_PER_CHUNK * CHANNELS
-        private const val FRAME_BYTES = FRAME_SAMPLES * Float.SIZE_BYTES
+        private const val CHUNK_MILLIS = 100
+        private const val FRAMES_PER_CHUNK = SAMPLE_RATE * CHUNK_MILLIS / 1000
+        private const val CHUNK_SAMPLES = FRAMES_PER_CHUNK * CHANNELS
+        private const val CHUNK_BYTES = CHUNK_SAMPLES * Float.SIZE_BYTES
 
         private val PCM_MEDIA_TYPE = "application/x-proaudio-pcm".toMediaType()
+        private val EMPTY_BODY = ByteArray(0).toRequestBody(null)
 
         private val _active = MutableStateFlow(false)
         val active: StateFlow<Boolean> = _active
