@@ -74,6 +74,14 @@ fun ProAudioPlayerApp(
             onRadioCustomUrlChange = radioViewModel::setCustomUrl,
             onRadioPlayCustom = radioViewModel::playCustomStream,
             onAlertsRefresh = alertsViewModel::refresh,
+            onAlertProviderFormChange = alertsViewModel::updateProviderForm,
+            onAlertProviderTest = alertsViewModel::testProvider,
+            onAlertProviderSave = alertsViewModel::saveProvider,
+            onAlertAudioFormChange = alertsViewModel::updateAudioForm,
+            onAlertAudioSave = alertsViewModel::saveAudio,
+            onAlertMediaSelected = alertsViewModel::uploadMedia,
+            onAlertMediaReset = alertsViewModel::resetMedia,
+            onAlertMediaResetAll = alertsViewModel::resetAllMedia,
             onBack = playerViewModel::close,
         )
     }
