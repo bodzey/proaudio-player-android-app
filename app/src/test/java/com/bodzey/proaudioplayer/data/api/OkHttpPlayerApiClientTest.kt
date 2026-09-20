@@ -372,8 +372,8 @@ class OkHttpPlayerApiClientTest {
                 request.requestLine,
             )
             val body = request.body?.utf8().orEmpty()
-            assertTrue(body.contains(""location_uid":1133"))
-            assertTrue(body.contains(""token":"secret-token""))
+            assertTrue(body.contains("\"location_uid\":1133"))
+            assertTrue(body.contains("\"token\":\"secret-token\""))
         }
     }
 
@@ -459,8 +459,8 @@ class OkHttpPlayerApiClientTest {
                 request.requestLine,
             )
             val body = request.body?.utf8().orEmpty()
-            assertTrue(body.contains(""air_raid_alerts_enabled":false"))
-            assertTrue(body.contains(""duck_only_during_announcement":true"))
+            assertTrue(body.contains("\"air_raid_alerts_enabled\":false"))
+            assertTrue(body.contains("\"duck_only_during_announcement\":true"))
         }
     }
 
@@ -560,6 +560,46 @@ class OkHttpPlayerApiClientTest {
             assertEquals(
                 "provider.location_uid має бути додатним",
                 error.message,
+            )
+        }
+    }
+
+
+    @Test
+    fun meterEventsUseDedicatedV1SsePath() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .addHeader("Content-Type", "text/event-stream")
+                    .body(
+                        """
+                        : meter-keepalive
+                        event: meter
+                        data: {"sequence":7,"sample_rate":48000,"interval_ms":20,"master":{"peak":[-1.0,-2.0],"rms":[-7.0,-8.0],"clip":[false,false],"available":true},"music":{"peak":[-10.0,-11.0],"rms":[-16.0,-17.0],"clip":[false,false],"available":true},"alert":{"peak":[-60.0,-60.0],"rms":[-60.0,-60.0],"clip":[false,false],"available":false}}
+
+                        """.trimIndent(),
+                    )
+                    .build(),
+            )
+
+            val api = OkHttpPlayerApiClient(
+                client = OkHttpClient(),
+            )
+            val endpoint = DeviceEndpoint(
+                host = server.hostName,
+                port = server.port,
+            )
+
+            val frame = runBlocking {
+                api.meterEvents(endpoint).first()
+            }
+
+            assertEquals(7L, frame.sequence)
+            assertEquals(-1.0, frame.master.peakDb.left, 0.001)
+            assertEquals(
+                "GET /api/v1/meters HTTP/1.1",
+                server.takeRequest().requestLine,
             )
         }
     }
