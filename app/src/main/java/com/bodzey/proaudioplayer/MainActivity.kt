@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bodzey.proaudioplayer.ui.ProAudioPlayerApp
 import com.bodzey.proaudioplayer.ui.alerts.AlertsViewModel
 import com.bodzey.proaudioplayer.ui.devices.DevicesViewModel
+import com.bodzey.proaudioplayer.ui.meter.MeterViewModel
 import com.bodzey.proaudioplayer.ui.player.PlayerViewModel
 import com.bodzey.proaudioplayer.ui.radio.RadioViewModel
 import com.bodzey.proaudioplayer.ui.theme.ProAudioPlayerTheme
@@ -24,6 +25,11 @@ class MainActivity : ComponentActivity() {
                 factory = DevicesViewModel.factory(
                     deviceRepository = container.deviceRepository,
                     demoDiscoveryController = container.demoDiscoveryController,
+                ),
+            )
+            val meterViewModel: MeterViewModel = viewModel(
+                factory = MeterViewModel.factory(
+                    meterRepository = container.meterRepository,
                 ),
             )
             val playerViewModel: PlayerViewModel = viewModel(
@@ -47,6 +53,7 @@ class MainActivity : ComponentActivity() {
                 ProAudioPlayerApp(
                     devicesViewModel = devicesViewModel,
                     playerViewModel = playerViewModel,
+                    meterViewModel = meterViewModel,
                     radioViewModel = radioViewModel,
                     alertsViewModel = alertsViewModel,
                     showDemoControls = BuildConfig.DEBUG,
