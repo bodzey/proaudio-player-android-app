@@ -6,12 +6,17 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.bodzey.proaudioplayer.core.api.PlayerAction
+import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.AppSection
+import kotlin.math.abs
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class PlayerViewModel(
@@ -29,8 +34,54 @@ class PlayerViewModel(
     private val _section = MutableStateFlow(AppSection.Player)
     val section: StateFlow<AppSection> = _section.asStateFlow()
 
-    private val _masterControlBusy = MutableStateFlow(false)
-    val masterControlBusy: StateFlow<Boolean> = _masterControlBusy.asStateFlow()
+    private val _masterMuteBusy = MutableStateFlow(false)
+    val masterMuteBusy: StateFlow<Boolean> = _masterMuteBusy.asStateFlow()
+
+    private val _masterVolumeOverride = MutableStateFlow<Double?>(null)
+    val masterVolumeOverride: StateFlow<Double?> = _masterVolumeOverride.asStateFlow()
+
+    private val masterVolumeRequests =
+        Channel<MasterVolumeRequest>(capacity = Channel.CONFLATED)
+
+    init {
+        viewModelScope.launch {
+            for (request in masterVolumeRequests) {
+                if (selectedDeviceId.value != request.deviceId) {
+                    continue
+                }
+
+                try {
+                    sessionRepository.setMasterVolume(request.percent)
+                } catch (error: Exception) {
+                    if (selectedDeviceId.value == request.deviceId &&
+                        _masterVolumeOverride.value?.let { value ->
+                            abs(value - request.percent) < 0.01
+                        } == true
+                    ) {
+                        _masterVolumeOverride.value = null
+                        _actionError.value =
+                            error.message ?: "Не вдалося змінити гучність MASTER"
+                    }
+                }
+
+                delay(MASTER_VOLUME_REQUEST_INTERVAL_MILLIS)
+            }
+        }
+
+        viewModelScope.launch {
+            state.collect { sessionState ->
+                val target = _masterVolumeOverride.value ?: return@collect
+                val connected = sessionState as? PlayerSessionState.Connected
+                    ?: return@collect
+
+                if (abs(connected.status.master.volumePercent - target) <=
+                    MASTER_VOLUME_ACK_TOLERANCE_PERCENT
+                ) {
+                    _masterVolumeOverride.value = null
+                }
+            }
+        }
+    }
 
     fun performAction(action: PlayerAction) {
         if (_pendingAction.value != null) {
@@ -54,41 +105,51 @@ class PlayerViewModel(
     }
 
     fun setMasterVolume(percent: Double) {
-        runMasterControl {
-            sessionRepository.setMasterVolume(percent)
-        }
+        val deviceId = selectedDeviceId.value ?: return
+        val target = percent.coerceIn(0.0, 100.0)
+
+        _actionError.value = null
+        _masterVolumeOverride.value = target
+        masterVolumeRequests.trySend(
+            MasterVolumeRequest(
+                deviceId = deviceId,
+                percent = target,
+            ),
+        )
     }
 
     fun setMasterMuted(muted: Boolean) {
-        runMasterControl {
-            sessionRepository.setMasterMuted(muted)
-        }
-    }
-
-    private fun runMasterControl(block: suspend () -> Unit) {
-        if (_masterControlBusy.value) {
+        if (_masterMuteBusy.value) {
             return
         }
         viewModelScope.launch {
-            _masterControlBusy.value = true
+            _masterMuteBusy.value = true
             _actionError.value = null
             try {
-                block()
+                sessionRepository.setMasterMuted(muted)
             } catch (error: Exception) {
                 _actionError.value = error.message ?: "Не вдалося змінити MASTER"
             } finally {
-                _masterControlBusy.value = false
+                _masterMuteBusy.value = false
             }
         }
     }
 
     fun close() {
         _actionError.value = null
+        _masterVolumeOverride.value = null
         _section.value = AppSection.Player
         sessionRepository.clearSelection()
     }
 
+    private data class MasterVolumeRequest(
+        val deviceId: DeviceId,
+        val percent: Double,
+    )
+
     companion object {
+        private const val MASTER_VOLUME_REQUEST_INTERVAL_MILLIS = 75L
+        private const val MASTER_VOLUME_ACK_TOLERANCE_PERCENT = 0.75
         fun factory(
             sessionRepository: PlayerSessionRepository,
         ): ViewModelProvider.Factory =
