@@ -692,7 +692,7 @@ private fun MasterOutputControl(
 
             Surface(
                 onClick = { onMuteChange(!master.muted) },
-                enabled = !muteBusy && master.db != null,
+                enabled = !muteBusy && volumeOverride == null && master.db != null,
                 shape = RoundedCornerShape(9.dp),
                 color = if (master.muted) {
                     colors.danger.copy(alpha = 0.10f)
