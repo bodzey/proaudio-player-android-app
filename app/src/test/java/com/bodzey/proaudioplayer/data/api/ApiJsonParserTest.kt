@@ -45,8 +45,15 @@ class ApiJsonParserTest {
               "volume":89.1,
               "muted":false,
               "priority":{
+                "mode":"alert",
                 "active":true,
-                "blocking":true
+                "blocking":true,
+                "duck_only_during_announcement":false,
+                "minute_silence_active":false,
+                "matched_uids":[1133,1144],
+                "last_success_at":"2026-09-20T10:00:00Z",
+                "last_change_at":"2026-09-20T09:59:00Z",
+                "last_error":null
               },
               "mpd":{
                 "is_stream":true,
@@ -89,8 +96,13 @@ class ApiJsonParserTest {
         assertEquals(-17.25, status.master.db ?: Double.NaN, 0.001)
         assertEquals(89.1, status.music.volumePercent, 0.001)
         assertFalse(status.music.muted)
+        assertEquals("alert", status.priority.mode)
         assertTrue(status.priority.active)
         assertTrue(status.priority.blocking)
+        assertFalse(status.priority.duckOnlyDuringAnnouncement)
+        assertFalse(status.priority.minuteSilenceActive)
+        assertEquals(listOf(1133L, 1144L), status.priority.matchedUids)
+        assertEquals("2026-09-20T10:00:00Z", status.priority.lastSuccessAt)
         assertTrue(status.mpd.isStream)
         assertEquals("https://radio.example/live", status.mpd.streamUrl)
         assertEquals("Spotify Connect", status.player.source)
@@ -213,6 +225,43 @@ class ApiJsonParserTest {
         assertEquals("alarm_start", media.items.single().kind)
         assertEquals(123456L, media.items.single().sizeBytes)
         assertEquals(setOf("audio/mpeg", "audio/mp3"), media.acceptedContentTypes)
+        assertEquals(16777216L, media.maxSizeBytes)
+    }
+
+
+    @Test
+    fun alertProviderTestParsesActiveState() {
+        val result = parser.alertProviderTest(
+            """{"ok":true,"active":true,"state":"active","location_uid":1133}""",
+        )
+
+        assertTrue(result.ok)
+        assertTrue(result.active)
+        assertEquals("active", result.state)
+        assertEquals(1133L, result.locationUid)
+    }
+
+    @Test
+    fun alertMediaFileParsesMutationResponse() {
+        val media = parser.alertMediaFile(
+            """
+            {
+              "kind":"minute_silence",
+              "label":"Хвилина мовчання",
+              "file_name":"minute_silence.mp3",
+              "configured":true,
+              "size_bytes":987654,
+              "modified_unix_seconds":1770000001,
+              "max_size_bytes":16777216,
+              "content_type":"audio/mpeg"
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals("minute_silence", media.kind)
+        assertEquals("minute_silence.mp3", media.fileName)
+        assertTrue(media.configured)
+        assertEquals(987654L, media.sizeBytes)
         assertEquals(16777216L, media.maxSizeBytes)
     }
 
