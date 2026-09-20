@@ -35,6 +35,13 @@
     <string name="now_playing">Зараз відтворюється</string>
     <string name="no_active_stream">Немає активного потоку</string>
     <string name="master_output">MASTER OUTPUT</string>
+    <string name="network_audio_eyebrow">МЕРЕЖЕВЕ АУДІО</string>
+    <string name="network_audio_title">Звук із телефона</string>
+    <string name="network_audio_description">Передає системне аудіо Android у MUSIC-шину вибраного ProAudio Player через локальну мережу.</string>
+    <string name="network_audio_active">ПЕРЕДАЧА АКТИВНА</string>
+    <string name="network_audio_start">Передати звук телефона</string>
+    <string name="network_audio_stop">Зупинити передачу</string>
+    <string name="network_audio_capture_note">Android покаже системне підтвердження захоплення. Окремі застосунки можуть забороняти захоплення свого аудіо.</string>
     <string name="meters_eyebrow">РІВНІ СИГНАЛУ</string>
     <string name="meters_title">Аудіометри</string>
     <string name="meters_online">ОНЛАЙН</string>
