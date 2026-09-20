@@ -35,6 +35,7 @@
     <string name="nav_player">Плеєр</string>
     <string name="nav_radio">Радіо</string>
     <string name="nav_alerts">Оповіщення</string>
+    <string name="nav_alerts_active">Оповіщення, активна тривога</string>
     <string name="radio_port_pending">Нативний розділ радіо використовуватиме той самий API та буде перенесений наступним етапом.</string>
     <string name="alerts_port_pending">Нативний розділ оповіщень використовуватиме той самий API та буде перенесений наступним етапом.</string>
     <string name="player_previous">Попередній</string>
