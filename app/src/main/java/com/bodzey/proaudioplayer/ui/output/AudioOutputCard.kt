@@ -223,8 +223,15 @@ private fun OutputRow(
 }
 
 @Composable
-private fun outputDetails(output: AudioOutputDescriptor): List<String> =
-    buildList {
+private fun outputDetails(output: AudioOutputDescriptor): List<String> {
+    val rate = output.capabilities.sampleRate?.let { value ->
+        stringResource(R.string.outputs_details_rate, value)
+    }
+    val channels = output.capabilities.channels?.let { value ->
+        stringResource(R.string.outputs_details_channels, value)
+    }
+
+    return buildList {
         output.capabilities.deviceBus
             ?.takeIf { it.isNotBlank() }
             ?.uppercase()
@@ -233,12 +240,7 @@ private fun outputDetails(output: AudioOutputDescriptor): List<String> =
             ?.takeIf { it.isNotBlank() }
             ?.uppercase()
             ?.let(::add)
-        output.capabilities.sampleRate
-            ?.let { rate ->
-                add(stringResource(R.string.outputs_details_rate, rate))
-            }
-        output.capabilities.channels
-            ?.let { channels ->
-                add(stringResource(R.string.outputs_details_channels, channels))
-            }
+        rate?.let(::add)
+        channels?.let(::add)
     }
+}
