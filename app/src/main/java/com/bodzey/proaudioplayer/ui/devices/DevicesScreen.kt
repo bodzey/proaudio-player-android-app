@@ -238,7 +238,6 @@ private fun DeviceCard(
             Text(
                 text = "›",
                 color = colors.accent,
-                fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Light,
             )
