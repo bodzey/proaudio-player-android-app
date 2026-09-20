@@ -8,6 +8,7 @@ import com.bodzey.proaudioplayer.core.discovery.CombinedDeviceDiscoverySource
 import com.bodzey.proaudioplayer.core.discovery.DeviceDiscoverySource
 import com.bodzey.proaudioplayer.core.discovery.demo.DemoDiscoveryController
 import com.bodzey.proaudioplayer.core.discovery.nsd.AndroidNsdDiscoverySource
+import com.bodzey.proaudioplayer.core.meter.MeterRepository
 import com.bodzey.proaudioplayer.core.session.EndpointResolver
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import com.bodzey.proaudioplayer.data.api.OkHttpPlayerApiClient
@@ -59,5 +60,10 @@ class AppContainer(
         endpointResolver = endpointResolver,
         apiClient = apiClient,
         scope = applicationScope,
+    )
+
+    val meterRepository = MeterRepository(
+        sessionRepository = playerSessionRepository,
+        apiClient = apiClient,
     )
 }
