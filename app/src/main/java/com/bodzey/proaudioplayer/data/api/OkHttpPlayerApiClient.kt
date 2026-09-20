@@ -2,6 +2,7 @@ package com.bodzey.proaudioplayer.data.api
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
+import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
@@ -14,8 +15,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.coroutines.executeAsync
 
 class OkHttpPlayerApiClient(
@@ -37,6 +40,17 @@ class OkHttpPlayerApiClient(
 
     override suspend fun status(endpoint: DeviceEndpoint): PlayerStatus =
         parser.status(get(endpoint, "/api/v1/status"))
+
+    override suspend fun playerAction(
+        endpoint: DeviceEndpoint,
+        action: PlayerAction,
+    ) {
+        postJson(
+            endpoint = endpoint,
+            path = "/api/v1/player",
+            json = """{"action":"${action.wireValue}"}""",
+        )
+    }
 
     override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> = channelFlow {
         val request = Request.Builder()
@@ -93,6 +107,31 @@ class OkHttpPlayerApiClient(
         awaitClose {
             call.cancel()
             reader.cancel()
+        }
+    }
+
+    private suspend fun postJson(
+        endpoint: DeviceEndpoint,
+        path: String,
+        json: String,
+    ) {
+        val request = Request.Builder()
+            .url(endpoint.apiUrl(path))
+            .header("Accept", "application/json")
+            .post(
+                json.toRequestBody(
+                    "application/json; charset=utf-8".toMediaType(),
+                ),
+            )
+            .build()
+
+        client.newCall(request).executeAsync().use { response ->
+            if (!response.isSuccessful) {
+                throw PlayerApiException(
+                    statusCode = response.code,
+                    message = "Player API returned HTTP " + response.code,
+                )
+            }
         }
     }
 
