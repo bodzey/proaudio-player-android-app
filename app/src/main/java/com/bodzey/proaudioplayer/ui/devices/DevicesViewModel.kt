@@ -2,45 +2,44 @@ package com.bodzey.proaudioplayer.ui.devices
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
-import com.bodzey.proaudioplayer.core.device.DeviceRegistry
+import com.bodzey.proaudioplayer.core.device.DeviceRepository
 import com.bodzey.proaudioplayer.core.discovery.demo.DemoDiscoveryController
-import kotlinx.coroutines.flow.SharingStarted
+import com.bodzey.proaudioplayer.core.model.DeviceId
+import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
 
 class DevicesViewModel(
-    deviceRegistry: DeviceRegistry,
+    deviceRepository: DeviceRepository,
     private val demoDiscoveryController: DemoDiscoveryController,
+    private val sessionRepository: PlayerSessionRepository,
 ) : ViewModel() {
 
-    val devices: StateFlow<List<AvailableDevice>> = deviceRegistry
-        .devices()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0),
-            initialValue = emptyList(),
-        )
-
+    val devices: StateFlow<List<AvailableDevice>> = deviceRepository.devices
     val demoEnabled: StateFlow<Boolean> = demoDiscoveryController.enabled
 
     fun setDemoEnabled(enabled: Boolean) {
         demoDiscoveryController.setEnabled(enabled)
     }
 
+    fun selectDevice(deviceId: DeviceId) {
+        sessionRepository.select(deviceId)
+    }
+
     companion object {
         fun factory(
-            deviceRegistry: DeviceRegistry,
+            deviceRepository: DeviceRepository,
             demoDiscoveryController: DemoDiscoveryController,
+            sessionRepository: PlayerSessionRepository,
         ): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
                     DevicesViewModel(
-                        deviceRegistry = deviceRegistry,
+                        deviceRepository = deviceRepository,
                         demoDiscoveryController = demoDiscoveryController,
+                        sessionRepository = sessionRepository,
                     )
                 }
             }
