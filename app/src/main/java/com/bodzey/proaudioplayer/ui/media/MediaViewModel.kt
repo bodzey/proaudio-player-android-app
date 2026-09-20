@@ -1,8 +1,10 @@
 package com.bodzey.proaudioplayer.ui.media
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.bodzey.proaudioplayer.core.model.DeviceId
@@ -18,8 +20,15 @@ import kotlinx.coroutines.supervisorScope
 
 class MediaViewModel(
     private val sessionRepository: PlayerSessionRepository,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(MediaUiState())
+    private val _uiState = MutableStateFlow(
+        MediaUiState(
+            libraryQuery = restoredLibraryQuery(
+                sessionRepository.selectedDeviceId.value,
+            ),
+        ),
+    )
     val uiState: StateFlow<MediaUiState> = _uiState.asStateFlow()
 
     fun ensureLoaded(force: Boolean = false) {
@@ -44,7 +53,11 @@ class MediaViewModel(
             library = if (current.deviceId == deviceId) current.library else emptyList(),
             playlists = if (current.deviceId == deviceId) current.playlists else emptyList(),
             queue = if (current.deviceId == deviceId) current.queue else emptyList(),
-            libraryQuery = if (current.deviceId == deviceId) current.libraryQuery else "",
+            libraryQuery = if (current.deviceId == deviceId) {
+                current.libraryQuery
+            } else {
+                restoredLibraryQuery(deviceId)
+            },
             busyAction = null,
             error = null,
         )
@@ -95,9 +108,12 @@ class MediaViewModel(
     }
 
     fun setLibraryQuery(value: String) {
+        val deviceId = sessionRepository.selectedDeviceId.value ?: return
         _uiState.value = _uiState.value.copy(
             libraryQuery = value,
         )
+        savedStateHandle[KEY_QUERY_DEVICE_ID] = deviceId.value
+        savedStateHandle[KEY_LIBRARY_QUERY] = value
     }
 
     fun refresh() {
@@ -242,6 +258,20 @@ class MediaViewModel(
         }
     }
 
+    private fun restoredLibraryQuery(deviceId: DeviceId?): String {
+        if (deviceId == null) return ""
+        val savedDeviceId = savedStateHandle
+            .get<String>(KEY_QUERY_DEVICE_ID)
+            ?.let { value ->
+                runCatching { DeviceId.parse(value) }.getOrNull()
+            }
+        return if (savedDeviceId == deviceId) {
+            savedStateHandle.get<String>(KEY_LIBRARY_QUERY).orEmpty()
+        } else {
+            ""
+        }
+    }
+
     private fun currentDeviceId(): DeviceId? {
         val deviceId = _uiState.value.deviceId ?: return null
         return deviceId.takeIf {
@@ -277,12 +307,18 @@ class MediaViewModel(
         }
 
     companion object {
+        private const val KEY_QUERY_DEVICE_ID = "media_query_device_id"
+        private const val KEY_LIBRARY_QUERY = "media_library_query"
+
         fun factory(
             sessionRepository: PlayerSessionRepository,
         ): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
-                    MediaViewModel(sessionRepository)
+                    MediaViewModel(
+                        sessionRepository = sessionRepository,
+                        savedStateHandle = createSavedStateHandle(),
+                    )
                 }
             }
     }
