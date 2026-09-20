@@ -1,9 +1,23 @@
 package com.bodzey.proaudioplayer.ui
 
+import android.Manifest
+import android.app.Activity
+import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bodzey.proaudioplayer.audio.AudioRelayService
+import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import com.bodzey.proaudioplayer.ui.alerts.AlertsViewModel
 import com.bodzey.proaudioplayer.ui.devices.DevicesScreen
 import com.bodzey.proaudioplayer.ui.devices.DevicesViewModel
@@ -28,6 +42,70 @@ fun ProAudioPlayerApp(
     showDemoControls: Boolean,
 ) {
     val selectedDeviceId = playerViewModel.selectedDeviceId.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val relayActive = AudioRelayService.active.collectAsStateWithLifecycle()
+    var pendingRelayEndpoint by remember { mutableStateOf<DeviceEndpoint?>(null) }
+    var relayError by remember { mutableStateOf<String?>(null) }
+
+    val projectionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val endpoint = pendingRelayEndpoint
+        pendingRelayEndpoint = null
+        val data = result.data
+        if (endpoint != null && result.resultCode == Activity.RESULT_OK && data != null) {
+            runCatching {
+                AudioRelayService.start(
+                    context = context,
+                    resultCode = result.resultCode,
+                    resultData = data,
+                    endpoint = endpoint,
+                )
+            }.onFailure { error ->
+                relayError = error.message ?: "Не вдалося запустити передачу аудіо"
+            }
+        } else if (endpoint != null) {
+            relayError = "Дозвіл на захоплення аудіо не надано"
+        }
+    }
+
+    fun launchProjection(endpoint: DeviceEndpoint) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            relayError = "Передавання системного аудіо потребує Android 10 або новішої версії"
+            return
+        }
+        relayError = null
+        pendingRelayEndpoint = endpoint
+        val projectionManager = context.getSystemService(MediaProjectionManager::class.java)
+        projectionLauncher.launch(projectionManager.createScreenCaptureIntent())
+    }
+
+    val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val endpoint = pendingRelayEndpoint
+        if (granted && endpoint != null) {
+            launchProjection(endpoint)
+        } else {
+            pendingRelayEndpoint = null
+            relayError = "Доступ до запису аудіо не надано"
+        }
+    }
+
+    fun startAudioRelay(endpoint: DeviceEndpoint) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            relayError = "Передавання системного аудіо потребує Android 10 або новішої версії"
+            return
+        }
+        pendingRelayEndpoint = endpoint
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            launchProjection(endpoint)
+        } else {
+            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
 
     BackHandler(enabled = selectedDeviceId.value != null) {
         playerViewModel.close()
@@ -97,6 +175,8 @@ fun ProAudioPlayerApp(
         PlayerScreen(
             state = sessionState.value,
             section = section.value,
+            audioRelayActive = relayActive.value,
+            audioRelayError = relayError,
             pendingAction = pendingAction.value,
             masterMuteBusy = masterMuteBusy.value,
             masterVolumeOverride = masterVolumeOverride.value,
@@ -138,6 +218,11 @@ fun ProAudioPlayerApp(
             onAlertMediaSelected = alertsViewModel::uploadMedia,
             onAlertMediaReset = alertsViewModel::resetMedia,
             onAlertMediaResetAll = alertsViewModel::resetAllMedia,
+            onAudioRelayStart = ::startAudioRelay,
+            onAudioRelayStop = {
+                relayError = null
+                AudioRelayService.stop(context)
+            },
             onBack = playerViewModel::close,
         )
     }
