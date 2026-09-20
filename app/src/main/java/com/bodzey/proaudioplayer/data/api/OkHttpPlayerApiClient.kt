@@ -5,6 +5,7 @@ import com.bodzey.proaudioplayer.core.api.ApiHealth
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
+import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -72,6 +73,24 @@ class OkHttpPlayerApiClient(
             endpoint = endpoint,
             path = "/api/v1/audio/mixer",
             json = """{"target":"master","db":$db,"muted":$muted}""",
+        )
+    }
+
+    override suspend fun radioStations(endpoint: DeviceEndpoint): List<RadioStation> =
+        parser.radioStations(get(endpoint, "/api/v1/radio/stations"))
+
+    override suspend fun playStream(
+        endpoint: DeviceEndpoint,
+        url: String,
+    ) {
+        val encodedUrl = kotlinx.serialization.json.Json.encodeToString(
+            kotlinx.serialization.serializer<String>(),
+            url,
+        )
+        postJson(
+            endpoint = endpoint,
+            path = "/api/v1/streams/play",
+            json = """{"url":$encodedUrl}""",
         )
     }
 
