@@ -7,6 +7,7 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.bodzey.proaudioplayer.core.api.NetworkStreamValidator
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
@@ -22,18 +23,11 @@ class RadioViewModel(
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    private val restoredDraftDeviceId: DeviceId? =
-        savedStateHandle.get<String>(KEY_CUSTOM_URL_DEVICE_ID)
-            ?.let { value -> runCatching { DeviceId.parse(value) }.getOrNull() }
-
     private val _uiState = MutableStateFlow(
         RadioUiState(
             deviceId = sessionRepository.selectedDeviceId.value,
-            customUrl = savedStateHandle.get<String>(KEY_CUSTOM_URL)
-                .orEmpty()
-                .takeIf {
-                    restoredDraftDeviceId == sessionRepository.selectedDeviceId.value
-                }
+            customUrl = sessionRepository.selectedDeviceId.value
+                ?.let(::restoredUrlFor)
                 .orEmpty(),
         ),
     )
@@ -142,11 +136,12 @@ class RadioViewModel(
         if (_uiState.value.pendingUrl != null) return
 
         val deviceId = connected.deviceId
-        val url = _uiState.value.customUrl.trim()
-        if (url.isEmpty()) {
+        val url = try {
+            NetworkStreamValidator.normalize(_uiState.value.customUrl)
+        } catch (error: IllegalArgumentException) {
             _uiState.value = _uiState.value.copy(
                 feedback = RadioFeedback(
-                    message = "Вкажіть адресу аудіопотоку",
+                    message = error.message ?: "Некоректна адреса потоку",
                     isError = true,
                 ),
             )
@@ -249,12 +244,16 @@ class RadioViewModel(
         sessionRepository.selectedDeviceId.value == deviceId &&
             _uiState.value.deviceId == deviceId
 
-    private fun restoredUrlFor(deviceId: DeviceId): String =
-        if (restoredDraftDeviceId == deviceId) {
+    private fun restoredUrlFor(deviceId: DeviceId): String {
+        val savedDeviceId = savedStateHandle
+            .get<String>(KEY_CUSTOM_URL_DEVICE_ID)
+            ?.let { value -> runCatching { DeviceId.parse(value) }.getOrNull() }
+        return if (savedDeviceId == deviceId) {
             savedStateHandle.get<String>(KEY_CUSTOM_URL).orEmpty()
         } else {
             ""
         }
+    }
 
     private fun persistCustomUrl(
         deviceId: DeviceId,
