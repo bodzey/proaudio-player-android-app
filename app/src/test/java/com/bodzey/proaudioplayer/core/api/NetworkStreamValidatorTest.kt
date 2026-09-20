@@ -66,10 +66,22 @@ class NetworkStreamValidatorTest {
             "http://[fe80::1]/stream",
             "http://[fc00::1]/stream",
             "http://[ff02::1]/stream",
+            "http://[::ffff:192.168.1.1]/stream",
+            "http://[::ffff:127.0.0.1]/stream",
         ).forEach { value ->
             assertThrows(IllegalArgumentException::class.java) {
                 NetworkStreamValidator.normalize(value)
             }
         }
+    }
+
+    @Test
+    fun acceptsPublicIpv4MappedIpv6() {
+        assertEquals(
+            "http://[::ffff:8.8.8.8]/stream",
+            NetworkStreamValidator.normalize(
+                "http://[::ffff:8.8.8.8]/stream",
+            ),
+        )
     }
 }
