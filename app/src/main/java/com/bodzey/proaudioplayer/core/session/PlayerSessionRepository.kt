@@ -154,9 +154,10 @@ class PlayerSessionRepository(
     }
 
     suspend fun saveAlertProviderSettings(
+        expectedDeviceId: DeviceId,
         update: AlertProviderUpdate,
     ): AlertProviderSettings {
-        val connected = connectedState()
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "alert_settings")
         return apiClient.saveAlertProviderSettings(
             endpoint = connected.endpoint,
@@ -165,9 +166,10 @@ class PlayerSessionRepository(
     }
 
     suspend fun testAlertProviderSettings(
+        expectedDeviceId: DeviceId,
         update: AlertProviderUpdate,
     ): AlertProviderTestResult {
-        val connected = connectedState()
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "alert_settings")
         return apiClient.testAlertProviderSettings(
             endpoint = connected.endpoint,
@@ -176,9 +178,10 @@ class PlayerSessionRepository(
     }
 
     suspend fun saveAlertAudioSettings(
+        expectedDeviceId: DeviceId,
         update: AlertAudioUpdate,
     ): AlertAudioSettings {
-        val connected = connectedState()
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "audio_settings")
         return apiClient.saveAlertAudioSettings(
             endpoint = connected.endpoint,
@@ -187,11 +190,12 @@ class PlayerSessionRepository(
     }
 
     suspend fun uploadAlertMedia(
+        expectedDeviceId: DeviceId,
         kind: String,
         bytes: ByteArray,
         contentType: String,
     ): AlertMediaFile {
-        val connected = connectedState()
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "alert_media")
         return apiClient.uploadAlertMedia(
             endpoint = connected.endpoint,
@@ -201,8 +205,11 @@ class PlayerSessionRepository(
         )
     }
 
-    suspend fun resetAlertMedia(kind: String): AlertMediaFile {
-        val connected = connectedState()
+    suspend fun resetAlertMedia(
+        expectedDeviceId: DeviceId,
+        kind: String,
+    ): AlertMediaFile {
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "alert_media")
         return apiClient.resetAlertMedia(
             endpoint = connected.endpoint,
@@ -213,6 +220,16 @@ class PlayerSessionRepository(
     private fun connectedState(): PlayerSessionState.Connected =
         state.value as? PlayerSessionState.Connected
             ?: throw IllegalStateException("Player session is not connected")
+
+    private fun connectedState(
+        expectedDeviceId: DeviceId,
+    ): PlayerSessionState.Connected {
+        val connected = connectedState()
+        if (connected.deviceId != expectedDeviceId) {
+            throw IllegalStateException("Selected player changed")
+        }
+        return connected
+    }
 
     private fun requireFeature(
         connected: PlayerSessionState.Connected,
