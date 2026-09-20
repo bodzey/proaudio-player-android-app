@@ -115,4 +115,76 @@ class OkHttpPlayerApiClientTest {
         }
     }
 
+    @Test
+    fun masterVolumeUsesCanonicalAudioLevelEndpoint() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body("""{"volume":64.0,"db":-9.1,"muted":false}""")
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(
+                client = OkHttpClient(),
+            )
+            val endpoint = DeviceEndpoint(
+                host = server.hostName,
+                port = server.port,
+            )
+
+            runBlocking {
+                client.setMasterVolume(endpoint, 64.0)
+            }
+
+            val request = server.takeRequest()
+            assertEquals(
+                "POST /api/v1/audio/level HTTP/1.1",
+                request.requestLine,
+            )
+            assertEquals(
+                """{"target":"master","percent":64.0}""",
+                request.body?.utf8(),
+            )
+        }
+    }
+
+    @Test
+    fun masterMutePreservesCurrentDb() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body("""{"target":"master","db":-17.25,"muted":true}""")
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(
+                client = OkHttpClient(),
+            )
+            val endpoint = DeviceEndpoint(
+                host = server.hostName,
+                port = server.port,
+            )
+
+            runBlocking {
+                client.setMasterMute(
+                    endpoint = endpoint,
+                    db = -17.25,
+                    muted = true,
+                )
+            }
+
+            val request = server.takeRequest()
+            assertEquals(
+                "POST /api/v1/audio/mixer HTTP/1.1",
+                request.requestLine,
+            )
+            assertEquals(
+                """{"target":"master","db":-17.25,"muted":true}""",
+                request.body?.utf8(),
+            )
+        }
+    }
+
 }
