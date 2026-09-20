@@ -274,4 +274,59 @@ class OkHttpPlayerApiClientTest {
         }
     }
 
+    @Test
+    fun alertReadEndpointsUseStableV1Paths() {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(
+                MockResponse.Builder()
+                    .body(
+                        """{"endpoint":"https://api.example/{uid}","location_uid":1,"location_type":"city","poll_interval_seconds":8.0,"request_timeout_seconds":7.0,"rate_limit_backoff_seconds":60.0,"clear_confirmations":2,"token_configured":true}""",
+                    )
+                    .build(),
+            )
+            server.enqueue(
+                MockResponse.Builder()
+                    .body(
+                        """{"air_raid_alerts_enabled":true,"duck_db":-12.0,"duck_fade_seconds":1.0,"restore_fade_seconds":3.0,"alert_volume_percent":89.1,"default_restore_volume_percent":89.1,"minute_silence_volume_percent":100.0,"minute_silence_enabled":true,"minute_silence_start_time":"08:59:50","minute_silence_timezone":"Europe/Kyiv","minute_silence_catch_up_seconds":120,"minute_silence_music_fade_seconds":1.0,"alert_repeat_interval_minutes":0,"duck_only_during_announcement":false,"sample_rate_mode":"fixed","sample_rate":48000,"allowed_sample_rates":[44100,48000]}""",
+                    )
+                    .build(),
+            )
+            server.enqueue(
+                MockResponse.Builder()
+                    .body(
+                        """{"items":[],"accepted_content_types":["audio/mpeg"],"max_size_bytes":16777216}""",
+                    )
+                    .build(),
+            )
+
+            val client = OkHttpPlayerApiClient(
+                client = OkHttpClient(),
+            )
+            val endpoint = DeviceEndpoint(
+                host = server.hostName,
+                port = server.port,
+            )
+
+            runBlocking {
+                client.alertProviderSettings(endpoint)
+                client.alertAudioSettings(endpoint)
+                client.alertMedia(endpoint)
+            }
+
+            assertEquals(
+                "GET /api/v1/settings/alerts HTTP/1.1",
+                server.takeRequest().requestLine,
+            )
+            assertEquals(
+                "GET /api/v1/settings/audio HTTP/1.1",
+                server.takeRequest().requestLine,
+            )
+            assertEquals(
+                "GET /api/v1/settings/alerts/media HTTP/1.1",
+                server.takeRequest().requestLine,
+            )
+        }
+    }
+
 }
