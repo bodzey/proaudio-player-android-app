@@ -35,6 +35,7 @@ data class PlayerState(
 data class AudioLevelState(
     val volumePercent: Double,
     val muted: Boolean,
+    val db: Double? = null,
 )
 
 data class PlayerStatus(
