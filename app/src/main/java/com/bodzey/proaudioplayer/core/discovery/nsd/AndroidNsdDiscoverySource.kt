@@ -7,6 +7,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.ext.SdkExtensions
 import androidx.annotation.RequiresApi
 import com.bodzey.proaudioplayer.core.discovery.DeviceDiscoveryEvent
 import com.bodzey.proaudioplayer.core.discovery.DeviceDiscoverySource
@@ -181,7 +182,17 @@ class AndroidNsdDiscoverySource(
     }
 
     private fun acquireLegacyMulticastLockIfNeeded(): WifiManager.MulticastLock? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val tExtensionVersion =
+            if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU) {
+                SdkExtensions.getExtensionVersion(Build.VERSION_CODES.TIRAMISU)
+            } else {
+                0
+            }
+        if (!requiresManualMulticastLock(
+                sdkInt = Build.VERSION.SDK_INT,
+                tExtensionVersion = tExtensionVersion,
+            )
+        ) {
             return null
         }
 
@@ -262,6 +273,13 @@ class AndroidNsdDiscoverySource(
         }
     }
 }
+
+internal fun requiresManualMulticastLock(
+    sdkInt: Int,
+    tExtensionVersion: Int,
+): Boolean =
+    sdkInt < Build.VERSION_CODES.TIRAMISU ||
+        (sdkInt == Build.VERSION_CODES.TIRAMISU && tExtensionVersion < 7)
 
 class NsdDiscoveryException(
     message: String,
