@@ -37,8 +37,8 @@ internal class MeterRenderBuffer(
     private var visuallyActive = false
 
     fun write(value: MeterFrame): Boolean {
-        frame = value
         writtenAtNanos = nowNanos()
+        frame = value
 
         val nextActive = value.hasVisualActivity()
         val shouldWakeRenderer = nextActive || nextActive != visuallyActive
@@ -90,16 +90,14 @@ internal class MeterDynamics {
         }
         lastFrameNanos = frameTimeNanos
 
-        val available = level?.available == true
+        val currentLevel = level?.takeIf { it.available }
         val targetPeakLeft =
-            if (available) clampDb(level.peakDb.left) else METER_MIN_DB
+            currentLevel?.peakDb?.left?.let(::clampDb) ?: METER_MIN_DB
         val targetPeakRight =
-            if (available) clampDb(level.peakDb.right) else METER_MIN_DB
-        val targetRms = if (available) {
-            stereoRmsDb(level.rmsDb.left, level.rmsDb.right)
-        } else {
-            METER_MIN_DB
-        }
+            currentLevel?.peakDb?.right?.let(::clampDb) ?: METER_MIN_DB
+        val targetRms = currentLevel?.let {
+            stereoRmsDb(it.rmsDb.left, it.rmsDb.right)
+        } ?: METER_MIN_DB
 
         displayedRmsDb = smoothDb(
             current = displayedRmsDb,
@@ -112,9 +110,9 @@ internal class MeterDynamics {
         for (channel in 0..1) {
             val targetPeak = if (channel == 0) targetPeakLeft else targetPeakRight
             val clipped = if (channel == 0) {
-                available && level.clipLeft
+                currentLevel?.clipLeft == true
             } else {
-                available && level.clipRight
+                currentLevel?.clipRight == true
             }
 
             displayedPeakDb[channel] = smoothPeak(

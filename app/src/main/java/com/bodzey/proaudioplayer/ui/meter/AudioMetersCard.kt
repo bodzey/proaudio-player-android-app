@@ -411,7 +411,7 @@ private fun MeterLaneLabels() {
                 )
                 MeterLaneLabel(
                     text = "RMS",
-                    modifier = Modifier.weight(1.5f),
+                    modifier = Modifier.weight(2f),
                     color = colors.textMuted,
                 )
                 MeterLaneLabel(
