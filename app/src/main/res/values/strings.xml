@@ -43,6 +43,18 @@
     <string name="meters_clip">CLIP</string>
     <string name="master_mute">MUTE MASTER</string>
     <string name="master_unmute">UNMUTE MASTER</string>
+    <string name="mixer_eyebrow">ЛОГІЧНИЙ МІКШЕР</string>
+    <string name="mixer_title">MUSIC / ALERT</string>
+    <string name="mixer_description">Рівні логічних шин до MASTER. Зміни застосовуються на плеєрі в dB.</string>
+    <string name="mixer_music">MUSIC</string>
+    <string name="mixer_alert">ALERT</string>
+    <string name="mixer_refresh">Оновити мікшер</string>
+    <string name="mixer_loading">Завантаження мікшера…</string>
+    <string name="mixer_mute">MUTE</string>
+    <string name="mixer_unmute">UNMUTE</string>
+    <string name="mixer_blocked">Зміна MUSIC/ALERT заблокована активним пріоритетним оповіщенням.</string>
+    <string name="mixer_level_description">%1$s, %2$.1f dB</string>
+
     <string name="outputs_eyebrow">АУДІОВИХІД</string>
     <string name="outputs_title">Фізичний вихід</string>
     <string name="outputs_description">MASTER маршрутизується на вибраний доступний вихід. Вибір зберігається на самому плеєрі.</string>
