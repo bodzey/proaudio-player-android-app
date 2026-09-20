@@ -12,6 +12,8 @@ import com.bodzey.proaudioplayer.core.meter.MeterRepository
 import com.bodzey.proaudioplayer.core.session.EndpointResolver
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import com.bodzey.proaudioplayer.data.api.OkHttpPlayerApiClient
+import com.bodzey.proaudioplayer.data.device.ProAudioDatabase
+import com.bodzey.proaudioplayer.data.device.RoomDeviceHistoryStore
 import com.bodzey.proaudioplayer.data.media.AndroidAlertMediaImporter
 import com.bodzey.proaudioplayer.debug.createDevelopmentDiscoverySource
 import kotlinx.coroutines.CoroutineScope
@@ -46,8 +48,14 @@ class AppContainer(
         CombinedDeviceDiscoverySource(*discoverySources),
     )
 
+    private val database = ProAudioDatabase.create(context)
+    private val deviceHistoryStore = RoomDeviceHistoryStore(
+        database.knownDeviceDao(),
+    )
+
     val deviceRepository = DeviceRepository(
         deviceRegistry = deviceRegistry,
+        historyStore = deviceHistoryStore,
         scope = applicationScope,
     )
 
