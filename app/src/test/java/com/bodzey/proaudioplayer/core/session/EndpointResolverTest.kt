@@ -5,6 +5,7 @@ import com.bodzey.proaudioplayer.core.api.ApiHealth
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
+import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import com.bodzey.proaudioplayer.core.model.DeviceId
@@ -89,6 +90,15 @@ class EndpointResolverTest {
             endpoint: DeviceEndpoint,
             db: Double,
             muted: Boolean,
+        ) = error("Not used")
+
+        override suspend fun radioStations(
+            endpoint: DeviceEndpoint,
+        ): List<RadioStation> = error("Not used")
+
+        override suspend fun playStream(
+            endpoint: DeviceEndpoint,
+            url: String,
         ) = error("Not used")
 
         override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> =
