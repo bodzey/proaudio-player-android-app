@@ -45,13 +45,11 @@ class EndpointResolver(
                 val result = results.receive()
                 result.getOrNull()?.let { resolved ->
                     jobs.forEach { job -> job.cancel() }
-                    results.close()
                     return@supervisorScope resolved
                 }
                 result.exceptionOrNull()?.let(failures::add)
             }
 
-            results.close()
             throw EndpointResolutionException(
                 deviceName = device.displayName,
                 failures = failures,
