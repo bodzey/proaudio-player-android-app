@@ -3,21 +3,28 @@ package com.bodzey.proaudioplayer.core.device
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class DeviceRepository(
     deviceRegistry: DeviceRegistry,
     private val historyStore: DeviceHistoryStore,
     scope: CoroutineScope,
 ) {
+    private val persistenceRequests =
+        Channel<List<AvailableDevice>>(capacity = Channel.CONFLATED)
+
     val devices: StateFlow<List<AvailableDevice>> = deviceRegistry
         .devices()
-        .onEach(::persistLiveSnapshot)
+        .onEach { snapshot ->
+            persistenceRequests.trySend(snapshot)
+        }
         .stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(
@@ -42,6 +49,14 @@ class DeviceRepository(
             initialValue = emptyList(),
         )
 
+    init {
+        scope.launch {
+            for (snapshot in persistenceRequests) {
+                persistLiveSnapshot(snapshot)
+            }
+        }
+    }
+
     fun current(deviceId: DeviceId): AvailableDevice? =
         devices.value.firstOrNull { device -> device.id == deviceId }
 
@@ -53,8 +68,8 @@ class DeviceRepository(
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
-            // Persistence is secondary to live discovery. A database failure
-            // must not tear down mDNS discovery or an active player session.
+            // History is advisory. Database failures must not affect live
+            // discovery, endpoint resolution or an active player session.
         }
     }
 }
