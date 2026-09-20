@@ -38,9 +38,33 @@ data class AudioLevelState(
     val db: Double? = null,
 )
 
+data class PriorityState(
+    val active: Boolean,
+    val blocking: Boolean,
+)
+
+data class MpdState(
+    val isStream: Boolean,
+    val streamUrl: String?,
+)
+
+data class RadioStation(
+    val id: String,
+    val name: String,
+    val url: String,
+    val homepage: String?,
+    val favicon: String?,
+    val tags: List<String>,
+    val codec: String?,
+    val bitrate: Int?,
+    val votes: Long,
+)
+
 data class PlayerStatus(
     val name: String,
     val master: AudioLevelState,
     val music: AudioLevelState,
+    val priority: PriorityState,
+    val mpd: MpdState,
     val player: PlayerState,
 )
