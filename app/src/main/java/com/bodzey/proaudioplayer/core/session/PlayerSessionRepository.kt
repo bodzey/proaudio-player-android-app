@@ -87,8 +87,11 @@ class PlayerSessionRepository(
         _selectedDeviceId.value = null
     }
 
-    suspend fun performAction(action: PlayerAction) {
-        val connected = connectedState()
+    suspend fun performAction(
+        expectedDeviceId: DeviceId,
+        action: PlayerAction,
+    ) {
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "player_control")
         apiClient.playerAction(
             endpoint = connected.endpoint,
@@ -96,11 +99,14 @@ class PlayerSessionRepository(
         )
     }
 
-    suspend fun setMasterVolume(percent: Double) {
+    suspend fun setMasterVolume(
+        expectedDeviceId: DeviceId,
+        percent: Double,
+    ) {
         require(percent.isFinite() && percent in 0.0..100.0) {
             "Master volume must be between 0 and 100"
         }
-        val connected = connectedState()
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "audio_mixer")
         apiClient.setMasterVolume(
             endpoint = connected.endpoint,
@@ -108,8 +114,11 @@ class PlayerSessionRepository(
         )
     }
 
-    suspend fun setMasterMuted(muted: Boolean) {
-        val connected = connectedState()
+    suspend fun setMasterMuted(
+        expectedDeviceId: DeviceId,
+        muted: Boolean,
+    ) {
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "audio_mixer")
         val db = connected.status.master.db
             ?: throw ApiCompatibilityException("Player status does not expose master dB")
@@ -120,13 +129,18 @@ class PlayerSessionRepository(
         )
     }
 
-    suspend fun radioStations(): List<RadioStation> {
-        val connected = connectedState()
+    suspend fun radioStations(
+        expectedDeviceId: DeviceId,
+    ): List<RadioStation> {
+        val connected = connectedState(expectedDeviceId)
         return apiClient.radioStations(connected.endpoint)
     }
 
-    suspend fun playStream(url: String) {
-        val connected = connectedState()
+    suspend fun playStream(
+        expectedDeviceId: DeviceId,
+        url: String,
+    ) {
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "network_streams")
         apiClient.playStream(
             endpoint = connected.endpoint,
@@ -134,24 +148,33 @@ class PlayerSessionRepository(
         )
     }
 
-    suspend fun stopPlayback() {
-        performAction(PlayerAction.Stop)
+    suspend fun stopPlayback(expectedDeviceId: DeviceId) {
+        performAction(
+            expectedDeviceId = expectedDeviceId,
+            action = PlayerAction.Stop,
+        )
     }
 
-    suspend fun alertProviderSettings(): AlertProviderSettings {
-        val connected = connectedState()
+    suspend fun alertProviderSettings(
+        expectedDeviceId: DeviceId,
+    ): AlertProviderSettings {
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "alert_settings")
         return apiClient.alertProviderSettings(connected.endpoint)
     }
 
-    suspend fun alertAudioSettings(): AlertAudioSettings {
-        val connected = connectedState()
+    suspend fun alertAudioSettings(
+        expectedDeviceId: DeviceId,
+    ): AlertAudioSettings {
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "audio_settings")
         return apiClient.alertAudioSettings(connected.endpoint)
     }
 
-    suspend fun alertMedia(): AlertMediaCatalog {
-        val connected = connectedState()
+    suspend fun alertMedia(
+        expectedDeviceId: DeviceId,
+    ): AlertMediaCatalog {
+        val connected = connectedState(expectedDeviceId)
         requireFeature(connected, "alert_media")
         return apiClient.alertMedia(connected.endpoint)
     }
