@@ -1,5 +1,6 @@
 package com.bodzey.proaudioplayer.core.session
 
+import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
 import com.bodzey.proaudioplayer.core.device.DeviceRepository
@@ -7,17 +8,21 @@ import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 
 class PlayerSessionRepository(
     deviceRepository: DeviceRepository,
@@ -68,57 +73,99 @@ class PlayerSessionRepository(
     }
 
     private fun connect(device: AvailableDevice): Flow<PlayerSessionState> = flow {
-        emit(
-            PlayerSessionState.Connecting(
-                deviceId = device.id,
-                displayName = device.displayName,
-            ),
-        )
-
-        try {
-            val resolved = endpointResolver.resolve(device)
-            val capabilities = apiClient.capabilities(resolved.endpoint)
-            requireCompatibleCapabilities(
-                expectedApiMajorVersion = device.apiMajorVersion,
-                capabilitiesApiMajorVersion = capabilities.apiMajorVersion,
-                features = capabilities.features,
-            )
-            val status = apiClient.status(resolved.endpoint)
-
+        while (currentCoroutineContext().isActive) {
             emit(
-                PlayerSessionState.Connected(
+                PlayerSessionState.Connecting(
                     deviceId = device.id,
                     displayName = device.displayName,
-                    endpoint = resolved.endpoint,
+                ),
+            )
+
+            try {
+                val resolved = endpointResolver.resolve(device)
+                val capabilities = apiClient.capabilities(resolved.endpoint)
+                requireCompatibleCapabilities(
+                    expectedApiMajorVersion = device.apiMajorVersion,
                     capabilities = capabilities,
-                    status = status,
-                ),
-            )
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            emit(
-                PlayerSessionState.Failed(
-                    deviceId = device.id,
-                    displayName = device.displayName,
-                    message = error.message ?: "Unable to connect to player",
-                ),
-            )
+                )
+                var status = apiClient.status(resolved.endpoint)
+
+                emit(
+                    connectedState(
+                        device = device,
+                        endpoint = resolved.endpoint,
+                        capabilities = capabilities,
+                        status = status,
+                    ),
+                )
+
+                if (capabilities.eventTransport == "sse") {
+                    apiClient.statusEvents(resolved.endpoint).collect { eventStatus ->
+                        status = eventStatus
+                        emit(
+                            connectedState(
+                                device = device,
+                                endpoint = resolved.endpoint,
+                                capabilities = capabilities,
+                                status = status,
+                            ),
+                        )
+                    }
+                    throw IllegalStateException("Player event stream closed")
+                }
+
+                while (currentCoroutineContext().isActive) {
+                    delay(2_000)
+                    status = apiClient.status(resolved.endpoint)
+                    emit(
+                        connectedState(
+                            device = device,
+                            endpoint = resolved.endpoint,
+                            capabilities = capabilities,
+                            status = status,
+                        ),
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                emit(
+                    PlayerSessionState.Failed(
+                        deviceId = device.id,
+                        displayName = device.displayName,
+                        message = error.message ?: "Unable to connect to player",
+                    ),
+                )
+                delay(RECONNECT_DELAY_MILLIS)
+            }
         }
     }
 
+    private fun connectedState(
+        device: AvailableDevice,
+        endpoint: DeviceEndpoint,
+        capabilities: ApiCapabilities,
+        status: com.bodzey.proaudioplayer.core.api.PlayerStatus,
+    ): PlayerSessionState.Connected =
+        PlayerSessionState.Connected(
+            deviceId = device.id,
+            displayName = device.displayName,
+            endpoint = endpoint,
+            capabilities = capabilities,
+            status = status,
+        )
+
     private fun requireCompatibleCapabilities(
         expectedApiMajorVersion: Int,
-        capabilitiesApiMajorVersion: Int,
-        features: Set<String>,
+        capabilities: ApiCapabilities,
     ) {
-        if (capabilitiesApiMajorVersion != expectedApiMajorVersion) {
+        if (capabilities.apiMajorVersion != expectedApiMajorVersion) {
             throw ApiCompatibilityException(
-                "Capabilities report API v" + capabilitiesApiMajorVersion +
+                "Capabilities report API v" + capabilities.apiMajorVersion +
                     ", expected v" + expectedApiMajorVersion,
             )
         }
-        if ("status" !in features) {
+        if ("status" !in capabilities.features) {
             throw ApiCompatibilityException("Player API does not advertise status support")
         }
     }
@@ -155,4 +202,8 @@ class PlayerSessionRepository(
             apiMajorVersion = apiMajorVersion,
             endpoints = endpoints,
         )
+
+    companion object {
+        private const val RECONNECT_DELAY_MILLIS = 1_500L
+    }
 }
