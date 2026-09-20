@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.bodzey.proaudioplayer.core.device.AvailableDevice
+import com.bodzey.proaudioplayer.core.device.DeviceListEntry
 import com.bodzey.proaudioplayer.core.device.DeviceRepository
 import com.bodzey.proaudioplayer.core.discovery.demo.DemoDiscoveryController
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +14,7 @@ class DevicesViewModel(
     private val demoDiscoveryController: DemoDiscoveryController,
 ) : ViewModel() {
 
-    val devices: StateFlow<List<AvailableDevice>> = deviceRepository.devices
+    val devices: StateFlow<List<DeviceListEntry>> = deviceRepository.listEntries
     val demoEnabled: StateFlow<Boolean> = demoDiscoveryController.enabled
 
     fun setDemoEnabled(enabled: Boolean) {
