@@ -11,6 +11,7 @@ data class AvailableDevice(
     val endpoints: Set<DeviceEndpoint>,
     val lastSeen: Instant,
     val presenceCount: Int,
+    val persistable: Boolean = true,
 ) {
     init {
         require(displayName.isNotBlank()) { "Display name must not be blank" }
