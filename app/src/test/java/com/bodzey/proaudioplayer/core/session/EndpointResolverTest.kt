@@ -2,6 +2,9 @@ package com.bodzey.proaudioplayer.core.session
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
+import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
+import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
+import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
@@ -100,6 +103,18 @@ class EndpointResolverTest {
             endpoint: DeviceEndpoint,
             url: String,
         ) = error("Not used")
+
+        override suspend fun alertProviderSettings(
+            endpoint: DeviceEndpoint,
+        ): AlertProviderSettings = error("Not used")
+
+        override suspend fun alertAudioSettings(
+            endpoint: DeviceEndpoint,
+        ): AlertAudioSettings = error("Not used")
+
+        override suspend fun alertMedia(
+            endpoint: DeviceEndpoint,
+        ): AlertMediaCatalog = error("Not used")
 
         override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> =
             emptyFlow()
