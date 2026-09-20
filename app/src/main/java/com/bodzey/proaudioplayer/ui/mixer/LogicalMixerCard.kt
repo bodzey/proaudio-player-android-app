@@ -186,7 +186,7 @@ private fun MixerChannel(
             onValueChange = { value ->
                 onLevelChange(target, value.toDouble())
             },
-            enabled = enabled && !pending,
+            enabled = enabled && !pending && !level.muted,
             valueRange = -60f..0f,
             colors = SliderDefaults.colors(
                 thumbColor = colors.text,
