@@ -130,4 +130,90 @@ class ApiJsonParserTest {
         assertEquals(42L, stations.single().votes)
     }
 
+    @Test
+    fun alertProviderSettingsParseRuntimeConfiguration() {
+        val settings = parser.alertProviderSettings(
+            """
+            {
+              "endpoint":"https://api.alerts.in.ua/v1/iot/active_air_raid_alerts/{uid}.json",
+              "location_uid":1133,
+              "location_type":"hromada",
+              "poll_interval_seconds":8.0,
+              "request_timeout_seconds":7.0,
+              "rate_limit_backoff_seconds":60.0,
+              "clear_confirmations":2,
+              "token_configured":true
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(1133L, settings.locationUid)
+        assertEquals("hromada", settings.locationType)
+        assertTrue(settings.tokenConfigured)
+        assertEquals(2, settings.clearConfirmations)
+    }
+
+    @Test
+    fun alertAudioSettingsParsePriorityAudioPolicy() {
+        val settings = parser.alertAudioSettings(
+            """
+            {
+              "air_raid_alerts_enabled":true,
+              "notifications_enabled":true,
+              "duck_db":-12.0,
+              "duck_fade_seconds":1.0,
+              "restore_fade_seconds":3.0,
+              "alert_volume_percent":89.1,
+              "default_restore_volume_percent":89.1,
+              "minute_silence_volume_percent":100.0,
+              "minute_silence_enabled":true,
+              "minute_silence_start_time":"08:59:50",
+              "minute_silence_timezone":"Europe/Kyiv",
+              "minute_silence_catch_up_seconds":120,
+              "minute_silence_music_fade_seconds":1.0,
+              "alert_repeat_interval_minutes":0,
+              "duck_only_during_announcement":false,
+              "sample_rate_mode":"fixed",
+              "sample_rate":48000,
+              "allowed_sample_rates":[44100,48000]
+            }
+            """.trimIndent(),
+        )
+
+        assertTrue(settings.airRaidAlertsEnabled)
+        assertEquals(-12.0, settings.duckDb, 0.001)
+        assertEquals("Europe/Kyiv", settings.minuteSilenceTimezone)
+        assertEquals(listOf(44100, 48000), settings.allowedSampleRates)
+    }
+
+    @Test
+    fun alertMediaParsesConfiguredFiles() {
+        val media = parser.alertMedia(
+            """
+            {
+              "items":[
+                {
+                  "kind":"alarm_start",
+                  "label":"Повітряна тривога",
+                  "file_name":"alarm_start.mp3",
+                  "configured":true,
+                  "size_bytes":123456,
+                  "modified_unix_seconds":1770000000,
+                  "max_size_bytes":16777216,
+                  "content_type":"audio/mpeg"
+                }
+              ],
+              "accepted_content_types":["audio/mpeg","audio/mp3"],
+              "max_size_bytes":16777216
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(1, media.items.size)
+        assertEquals("alarm_start", media.items.single().kind)
+        assertEquals(123456L, media.items.single().sizeBytes)
+        assertEquals(setOf("audio/mpeg", "audio/mp3"), media.acceptedContentTypes)
+        assertEquals(16777216L, media.maxSizeBytes)
+    }
+
 }
