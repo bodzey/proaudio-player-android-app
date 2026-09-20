@@ -18,28 +18,66 @@ class MeterRenderModelTest {
             nowNanos = { now },
             staleAfterNanos = 500L,
         )
-        val frame = meterFrame()
+        val frame = meterFrame(
+            music = meterLevel(
+                peakLeft = -6.0,
+                peakRight = -7.0,
+                rmsLeft = -18.0,
+                rmsRight = -19.0,
+            ),
+        )
 
         buffer.write(frame)
 
-        assertSame(frame.music, buffer.read(MeterBus.Music))
+        assertSame(frame, buffer.readFrame())
 
         now = 1_501L
 
-        assertFalse(buffer.read(MeterBus.Music).available)
+        assertEquals(null, buffer.readFrame())
     }
 
     @Test
-    fun bufferResetImmediatelyMakesMetersUnavailable() {
+    fun bufferWakesRendererForSignalAndTransitionBackToSilence() {
         val buffer = MeterRenderBuffer(
             nowNanos = { 10L },
         )
-        buffer.write(meterFrame())
+
+        assertFalse(buffer.write(meterFrame()))
+        assertTrue(
+            buffer.write(
+                meterFrame(
+                    music = meterLevel(
+                        peakLeft = -12.0,
+                        peakRight = -14.0,
+                        rmsLeft = -22.0,
+                        rmsRight = -24.0,
+                    ),
+                ),
+            ),
+        )
+        assertTrue(buffer.write(meterFrame()))
+        assertFalse(buffer.write(meterFrame()))
+    }
+
+    @Test
+    fun bufferResetImmediatelyClearsLatestFrame() {
+        val buffer = MeterRenderBuffer(
+            nowNanos = { 10L },
+        )
+        buffer.write(
+            meterFrame(
+                master = meterLevel(
+                    peakLeft = -3.0,
+                    peakRight = -4.0,
+                    rmsLeft = -12.0,
+                    rmsRight = -13.0,
+                ),
+            ),
+        )
 
         buffer.reset()
 
-        assertFalse(buffer.read(MeterBus.Master).available)
-        assertFalse(buffer.read(MeterBus.Alert).available)
+        assertEquals(null, buffer.readFrame())
     }
 
     @Test
@@ -83,14 +121,48 @@ class MeterRenderModelTest {
         assertFalse(dynamics.clipVisible(0, 2_900_000_000L))
     }
 
-    private fun meterFrame(): MeterFrame =
+    @Test
+    fun unavailableSourceReleasesTowardSilence() {
+        val dynamics = MeterDynamics()
+        dynamics.update(
+            level = meterLevel(
+                peakLeft = -6.0,
+                peakRight = -8.0,
+                rmsLeft = -12.0,
+                rmsRight = -14.0,
+            ),
+            frameTimeNanos = 1_000_000_000L,
+        )
+        val beforeRelease = dynamics.displayedRmsDb
+
+        dynamics.update(
+            level = null,
+            frameTimeNanos = 1_100_000_000L,
+        )
+
+        assertTrue(dynamics.displayedRmsDb < beforeRelease)
+    }
+
+    private fun meterFrame(
+        master: StereoMeterLevel = silentLevel(),
+        music: StereoMeterLevel = silentLevel(),
+        alert: StereoMeterLevel = silentLevel(),
+    ): MeterFrame =
         MeterFrame(
             sequence = 1L,
             sampleRate = 48_000,
             intervalMillis = 20L,
-            master = meterLevel(-3.0, -4.0, -12.0, -13.0),
-            music = meterLevel(-6.0, -7.0, -18.0, -19.0),
-            alert = meterLevel(-30.0, -31.0, -36.0, -37.0),
+            master = master,
+            music = music,
+            alert = alert,
+        )
+
+    private fun silentLevel(): StereoMeterLevel =
+        meterLevel(
+            peakLeft = METER_MIN_DB,
+            peakRight = METER_MIN_DB,
+            rmsLeft = METER_MIN_DB,
+            rmsRight = METER_MIN_DB,
         )
 
     private fun meterLevel(

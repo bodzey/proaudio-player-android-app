@@ -3,18 +3,26 @@ package com.bodzey.proaudioplayer.ui.meter
 import android.os.SystemClock
 import com.bodzey.proaudioplayer.core.api.MeterFrame
 import com.bodzey.proaudioplayer.core.api.StereoMeterLevel
-import com.bodzey.proaudioplayer.core.api.StereoMeterValues
 import kotlin.math.exp
 import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.sqrt
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 
-internal enum class MeterBus {
-    Master,
-    Music,
-    Alert,
+internal enum class MeterStreamStatus {
+    Inactive,
+    Connecting,
+    Active,
+    Failed,
 }
+
+class MeterRenderSource internal constructor(
+    internal val status: StateFlow<MeterStreamStatus>,
+    internal val buffer: MeterRenderBuffer,
+    internal val renderPulse: SharedFlow<Unit>,
+)
 
 internal class MeterRenderBuffer(
     private val nowNanos: () -> Long = SystemClock::elapsedRealtimeNanos,
@@ -26,27 +34,29 @@ internal class MeterRenderBuffer(
     @Volatile
     private var writtenAtNanos: Long = Long.MIN_VALUE
 
-    fun write(value: MeterFrame) {
-        writtenAtNanos = nowNanos()
+    private var visuallyActive = false
+
+    fun write(value: MeterFrame): Boolean {
         frame = value
+        writtenAtNanos = nowNanos()
+
+        val nextActive = value.hasVisualActivity()
+        val shouldWakeRenderer = nextActive || nextActive != visuallyActive
+        visuallyActive = nextActive
+        return shouldWakeRenderer
     }
 
     fun reset() {
         frame = null
         writtenAtNanos = Long.MIN_VALUE
+        visuallyActive = false
     }
 
-    fun read(bus: MeterBus): StereoMeterLevel {
-        val current = frame ?: return SILENT_LEVEL
+    fun readFrame(): MeterFrame? {
+        val current = frame ?: return null
         val age = nowNanos() - writtenAtNanos
-        if (age < 0L || age > staleAfterNanos) {
-            return SILENT_LEVEL
-        }
-
-        return when (bus) {
-            MeterBus.Master -> current.master
-            MeterBus.Music -> current.music
-            MeterBus.Alert -> current.alert
+        return current.takeIf {
+            age >= 0L && age <= staleAfterNanos
         }
     }
 
@@ -67,22 +77,25 @@ internal class MeterDynamics {
     private var lastFrameNanos = 0L
 
     fun update(
-        level: StereoMeterLevel,
+        level: StereoMeterLevel?,
         frameTimeNanos: Long,
     ) {
         if (frameTimeNanos <= 0L) return
 
         val dtSeconds = if (lastFrameNanos == 0L) {
-            1.0 / 60.0
+            1.0 / TARGET_RENDER_FPS
         } else {
             ((frameTimeNanos - lastFrameNanos).coerceAtLeast(0L) / 1_000_000_000.0)
                 .coerceAtMost(0.1)
         }
         lastFrameNanos = frameTimeNanos
 
-        val targetPeakLeft = if (level.available) clampDb(level.peakDb.left) else METER_MIN_DB
-        val targetPeakRight = if (level.available) clampDb(level.peakDb.right) else METER_MIN_DB
-        val targetRms = if (level.available) {
+        val available = level?.available == true
+        val targetPeakLeft =
+            if (available) clampDb(level.peakDb.left) else METER_MIN_DB
+        val targetPeakRight =
+            if (available) clampDb(level.peakDb.right) else METER_MIN_DB
+        val targetRms = if (available) {
             stereoRmsDb(level.rmsDb.left, level.rmsDb.right)
         } else {
             METER_MIN_DB
@@ -98,7 +111,11 @@ internal class MeterDynamics {
 
         for (channel in 0..1) {
             val targetPeak = if (channel == 0) targetPeakLeft else targetPeakRight
-            val clipped = if (channel == 0) level.clipLeft else level.clipRight
+            val clipped = if (channel == 0) {
+                available && level.clipLeft
+            } else {
+                available && level.clipRight
+            }
 
             displayedPeakDb[channel] = smoothPeak(
                 current = displayedPeakDb[channel],
@@ -133,7 +150,7 @@ internal class MeterDynamics {
 
 internal const val METER_MIN_DB = -60.0
 internal const val METER_MAX_DB = 0.0
-internal const val METER_SEGMENTS = 96
+internal const val TARGET_RENDER_FPS = 60.0
 
 private const val RMS_ATTACK_SECONDS = 0.055
 private const val RMS_RELEASE_SECONDS = 0.34
@@ -141,22 +158,25 @@ private const val PEAK_RELEASE_SECONDS = 0.11
 private const val PEAK_HOLD_NANOS = 850_000_000L
 private const val PEAK_DECAY_DB_PER_SECOND = 28.0
 private const val CLIP_HOLD_NANOS = 1_800_000_000L
+private const val VISUAL_ACTIVITY_THRESHOLD_DB = METER_MIN_DB + 0.5
 
-private val SILENT_VALUES = StereoMeterValues(
-    left = METER_MIN_DB,
-    right = METER_MIN_DB,
-)
+private fun MeterFrame.hasVisualActivity(): Boolean =
+    master.hasVisualActivity() ||
+        music.hasVisualActivity() ||
+        alert.hasVisualActivity()
 
-private val SILENT_LEVEL = StereoMeterLevel(
-    peakDb = SILENT_VALUES,
-    rmsDb = SILENT_VALUES,
-    clipLeft = false,
-    clipRight = false,
-    available = false,
-)
+private fun StereoMeterLevel.hasVisualActivity(): Boolean {
+    if (!available) return false
+    return clipLeft ||
+        clipRight ||
+        peakDb.left > VISUAL_ACTIVITY_THRESHOLD_DB ||
+        peakDb.right > VISUAL_ACTIVITY_THRESHOLD_DB
+}
 
-private fun clampDb(value: Double): Double =
-    value.coerceIn(METER_MIN_DB, METER_MAX_DB)
+private fun clampDb(value: Double): Double {
+    if (!value.isFinite()) return METER_MIN_DB
+    return value.coerceIn(METER_MIN_DB, METER_MAX_DB)
+}
 
 private fun smoothDb(
     current: Double,

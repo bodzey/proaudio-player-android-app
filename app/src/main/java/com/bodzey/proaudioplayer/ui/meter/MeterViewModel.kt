@@ -7,23 +7,75 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.bodzey.proaudioplayer.core.meter.MeterRepository
 import com.bodzey.proaudioplayer.core.meter.MeterState
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.stateIn
 
 class MeterViewModel(
     meterRepository: MeterRepository,
 ) : ViewModel() {
-    val state: StateFlow<MeterState> = meterRepository
-        .states()
+
+    private val buffer = MeterRenderBuffer()
+    private val renderPulse = MutableSharedFlow<Unit>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    private val status: StateFlow<MeterStreamStatus> = flow {
+        var previous = MeterStreamStatus.Inactive
+
+        meterRepository.states().collect { state ->
+            val next = when (state) {
+                MeterState.Inactive -> {
+                    buffer.reset()
+                    MeterStreamStatus.Inactive
+                }
+                MeterState.Connecting -> {
+                    buffer.reset()
+                    MeterStreamStatus.Connecting
+                }
+                is MeterState.Failed -> {
+                    buffer.reset()
+                    MeterStreamStatus.Failed
+                }
+                is MeterState.Active -> {
+                    if (buffer.write(state.frame)) {
+                        renderPulse.tryEmit(Unit)
+                    }
+                    MeterStreamStatus.Active
+                }
+            }
+
+            if (next != previous) {
+                previous = next
+                emit(next)
+            }
+        }
+    }
+        .onCompletion {
+            buffer.reset()
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(
                 stopTimeoutMillis = 0,
                 replayExpirationMillis = 0,
             ),
-            initialValue = MeterState.Inactive,
+            initialValue = MeterStreamStatus.Inactive,
         )
+
+    val renderSource = MeterRenderSource(
+        status = status,
+        buffer = buffer,
+        renderPulse = renderPulse.asSharedFlow(),
+    )
 
     companion object {
         fun factory(

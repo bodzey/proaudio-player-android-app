@@ -59,7 +59,7 @@ import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.api.RadioStation
-import com.bodzey.proaudioplayer.core.meter.MeterState
+import com.bodzey.proaudioplayer.ui.meter.MeterRenderSource
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.AppSection
 import com.bodzey.proaudioplayer.ui.alerts.AlertAudioForm
@@ -84,7 +84,6 @@ import com.bodzey.proaudioplayer.ui.radio.RadioUiState
 import com.bodzey.proaudioplayer.ui.radio.radioSection
 import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
 import java.util.Locale
-import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun PlayerScreen(
@@ -96,7 +95,7 @@ fun PlayerScreen(
     actionError: String?,
     radioState: RadioUiState,
     alertsState: AlertsUiState,
-    meterState: StateFlow<MeterState>,
+    meterSource: MeterRenderSource,
     mixerState: MixerUiState,
     outputState: OutputUiState,
     mediaState: MediaUiState,
@@ -215,7 +214,7 @@ fun PlayerScreen(
                             pendingAction = pendingAction,
                             masterMuteBusy = masterMuteBusy,
                             masterVolumeOverride = masterVolumeOverride,
-                            meterState = meterState,
+                            meterSource = meterSource,
                             mixerState = mixerState,
                             outputState = outputState,
                             onAction = onAction,
@@ -342,7 +341,7 @@ private fun ConnectedState(
     pendingAction: PlayerAction?,
     masterMuteBusy: Boolean,
     masterVolumeOverride: Double?,
-    meterState: StateFlow<MeterState>,
+    meterSource: MeterRenderSource,
     mixerState: MixerUiState,
     outputState: OutputUiState,
     onAction: (PlayerAction) -> Unit,
@@ -403,7 +402,7 @@ private fun ConnectedState(
             }
 
             AudioMetersCard(
-                state = meterState,
+                source = meterSource,
             )
 
             if ("audio_mixer" in state.capabilities.features) {
