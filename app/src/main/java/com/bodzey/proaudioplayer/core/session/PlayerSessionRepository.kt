@@ -1,6 +1,7 @@
 package com.bodzey.proaudioplayer.core.session
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
+import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
 import com.bodzey.proaudioplayer.core.device.DeviceRepository
@@ -73,6 +74,18 @@ class PlayerSessionRepository(
 
     fun clearSelection() {
         _selectedDeviceId.value = null
+    }
+
+    suspend fun performAction(action: PlayerAction) {
+        val connected = state.value as? PlayerSessionState.Connected
+            ?: throw IllegalStateException("Player session is not connected")
+        if ("player_control" !in connected.capabilities.features) {
+            throw ApiCompatibilityException("Player API does not advertise player control support")
+        }
+        apiClient.playerAction(
+            endpoint = connected.endpoint,
+            action = action,
+        )
     }
 
     private fun connect(device: AvailableDevice): Flow<PlayerSessionState> = flow {
