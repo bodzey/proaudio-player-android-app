@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.util.Locale
 import com.bodzey.proaudioplayer.R
@@ -220,9 +221,14 @@ private fun StatusRow(
     ) {
         Text(
             text = label,
+            modifier = Modifier.padding(end = 16.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(text = value)
+        Text(
+            text = value,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End,
+        )
     }
 }
 
