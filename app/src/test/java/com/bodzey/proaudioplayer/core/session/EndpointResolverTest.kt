@@ -9,6 +9,8 @@ import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import java.io.IOException
 import java.time.Instant
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -71,5 +73,8 @@ class EndpointResolverTest {
 
         override suspend fun status(endpoint: DeviceEndpoint): PlayerStatus =
             error("Not used")
+
+        override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> =
+            emptyFlow()
     }
 }
