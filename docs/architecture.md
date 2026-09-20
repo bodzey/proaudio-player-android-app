@@ -88,3 +88,23 @@ Android 17 local-network permissions are handled in the Android networking layer
 Discovery may be public inside the LAN, but control authorization is a separate concern. Credentials, once pairing is implemented, are stored through Android Keystore-backed storage and are scoped to a stable `DeviceId`.
 
 No SSH, shell execution or host administration is part of the Android control path.
+
+
+## Player session
+
+Discovery never creates live HTTP sessions for every visible player. The application opens a control-plane session only for the selected `DeviceId`.
+
+The session pipeline is:
+
+```text
+DeviceId
+  -> current discovered endpoints
+  -> GET /api/v1/health
+  -> validate API major version
+  -> GET /api/v1/capabilities
+  -> GET /api/v1/status
+```
+
+Endpoint resolution probes the selected device's advertised endpoints and accepts the first healthy endpoint that reports the same API major version as DNS-SD. IPv4 and IPv6 are transport alternatives for one device identity, not separate devices. A change to the discovered endpoint set rebuilds the selected session without changing the selected `DeviceId`.
+
+Plain HTTP is currently enabled only in the debug build because the development Docker and firmware control plane is HTTP. Release builds keep cleartext disabled until device pairing and authenticated TLS are implemented.
