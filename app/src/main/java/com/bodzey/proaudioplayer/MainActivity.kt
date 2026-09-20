@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
             val alertsViewModel: AlertsViewModel = viewModel(
                 factory = AlertsViewModel.factory(
                     sessionRepository = container.playerSessionRepository,
+                    mediaImporter = container.alertMediaImporter,
                 ),
             )
 
