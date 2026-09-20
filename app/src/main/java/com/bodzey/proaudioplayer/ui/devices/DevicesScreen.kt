@@ -2,6 +2,7 @@ package com.bodzey.proaudioplayer.ui.devices
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -213,9 +216,10 @@ private fun DeviceCard(
                         color = colors.textSoft,
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Text(
-                        text = "•",
-                        color = colors.textMuted,
+                    Box(
+                        modifier = Modifier
+                            .size(4.dp)
+                            .background(colors.textMuted, CircleShape),
                     )
                     Text(
                         text = pluralStringResource(
@@ -241,6 +245,7 @@ private fun DeviceCard(
 
             Text(
                 text = "›",
+                modifier = Modifier.clearAndSetSemantics {},
                 color = colors.accent,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Light,
@@ -281,6 +286,12 @@ private fun DemoControl(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .toggleable(
+                value = enabled,
+                role = Role.Switch,
+                onValueChange = onEnabledChange,
+            )
             .padding(horizontal = 4.dp)
             .padding(top = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -300,7 +311,7 @@ private fun DemoControl(
         }
         Switch(
             checked = enabled,
-            onCheckedChange = onEnabledChange,
+            onCheckedChange = null,
         )
     }
 }
