@@ -11,6 +11,7 @@ import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
 import com.bodzey.proaudioplayer.core.api.AudioLevelState
 import com.bodzey.proaudioplayer.core.api.MeterFrame
+import com.bodzey.proaudioplayer.core.api.MixerState
 import com.bodzey.proaudioplayer.core.api.MpdState
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PriorityState
@@ -129,6 +130,15 @@ internal class ApiJsonParser(
     }
 
 
+
+    fun mixerState(payload: String): MixerState {
+        val root = objectRoot(payload)
+        return MixerState(
+            music = root.requiredAudioLevel("music"),
+            alert = root.requiredAudioLevel("alert"),
+            master = root.requiredAudioLevel("master"),
+        )
+    }
 
     fun audioOutputs(payload: String): List<AudioOutputDescriptor> {
         val root = objectRoot(payload)
@@ -309,6 +319,16 @@ internal class ApiJsonParser(
             .orEmpty()
     }
 
+
+    private fun JsonObject.requiredAudioLevel(key: String): AudioLevelState {
+        val level = this[key]?.jsonObject
+            ?: throw ApiProtocolException("Missing audio level '$key'")
+        return AudioLevelState(
+            volumePercent = level.requiredDouble("volume"),
+            muted = level.requiredBoolean("muted"),
+            db = level.requiredDouble("db"),
+        )
+    }
 
     private fun audioOutput(item: JsonObject): AudioOutputDescriptor {
         val capabilities = item["capabilities"]?.jsonObject
