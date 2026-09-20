@@ -20,8 +20,9 @@ import okhttp3.coroutines.executeAsync
 
 class OkHttpPlayerApiClient(
     private val client: OkHttpClient = defaultClient(),
-    private val parser: ApiJsonParser = ApiJsonParser(),
 ) : PlayerApiClient {
+
+    private val parser = ApiJsonParser()
 
     private val eventClient: OkHttpClient = client.newBuilder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
