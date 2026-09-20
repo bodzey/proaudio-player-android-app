@@ -19,10 +19,10 @@ abstract class KnownDeviceDao {
     abstract fun observeAll(): Flow<List<KnownDeviceWithEndpoints>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    protected abstract suspend fun upsertDevice(device: KnownDeviceEntity)
+    abstract suspend fun upsertDevice(device: KnownDeviceEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    protected abstract suspend fun upsertEndpoints(
+    abstract suspend fun upsertEndpoints(
         endpoints: List<KnownEndpointEntity>,
     )
 
@@ -32,7 +32,7 @@ abstract class KnownDeviceDao {
         WHERE device_id = :deviceId
         """,
     )
-    protected abstract suspend fun deleteEndpoints(deviceId: String)
+    abstract suspend fun deleteEndpoints(deviceId: String)
 
     @Transaction
     open suspend fun replaceObserved(
