@@ -3,6 +3,7 @@ package com.bodzey.proaudioplayer.core.session
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
+import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
 import com.bodzey.proaudioplayer.core.device.DeviceRepository
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
@@ -107,6 +108,24 @@ class PlayerSessionRepository(
             db = db,
             muted = muted,
         )
+    }
+
+    suspend fun radioStations(): List<RadioStation> {
+        val connected = connectedState()
+        return apiClient.radioStations(connected.endpoint)
+    }
+
+    suspend fun playStream(url: String) {
+        val connected = connectedState()
+        requireFeature(connected, "network_streams")
+        apiClient.playStream(
+            endpoint = connected.endpoint,
+            url = url,
+        )
+    }
+
+    suspend fun stopPlayback() {
+        performAction(PlayerAction.Stop)
     }
 
     private fun connectedState(): PlayerSessionState.Connected =
