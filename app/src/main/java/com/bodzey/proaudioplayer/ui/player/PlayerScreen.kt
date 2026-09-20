@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bodzey.proaudioplayer.R
+import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
@@ -54,6 +55,8 @@ import java.util.Locale
 @Composable
 fun PlayerScreen(
     state: PlayerSessionState,
+    pendingAction: PlayerAction?,
+    onAction: (PlayerAction) -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -113,7 +116,11 @@ fun PlayerScreen(
                 when (state) {
                     PlayerSessionState.NoSelection -> Unit
                     is PlayerSessionState.Connecting -> ConnectingState(state)
-                    is PlayerSessionState.Connected -> ConnectedState(state)
+                    is PlayerSessionState.Connected -> ConnectedState(
+                        state = state,
+                        pendingAction = pendingAction,
+                        onAction = onAction,
+                    )
                     is PlayerSessionState.Offline -> MessageState(
                         title = stringResource(R.string.player_offline),
                         message = stringResource(R.string.player_offline_support),
@@ -162,6 +169,8 @@ private fun ConnectingState(
 @Composable
 private fun ConnectedState(
     state: PlayerSessionState.Connected,
+    pendingAction: PlayerAction?,
+    onAction: (PlayerAction) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
     val player = state.status.player
@@ -178,6 +187,8 @@ private fun ConnectedState(
                 )
                 PlayerMeta(
                     player = player,
+                    pendingAction = pendingAction,
+                    onAction = onAction,
                 )
             }
         }
@@ -296,7 +307,6 @@ private fun PlayerArtwork(
                 modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp),
                 color = colors.textMuted,
                 style = MaterialTheme.typography.headlineLarge,
-                fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
             )
         }
 
@@ -326,6 +336,8 @@ private fun PlayerArtwork(
 @Composable
 private fun PlayerMeta(
     player: PlayerState,
+    pendingAction: PlayerAction?,
+    onAction: (PlayerAction) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
     val progress by animateFloatAsState(
@@ -374,6 +386,8 @@ private fun PlayerMeta(
         TransportControls(
             state = player.state,
             controls = player.controls,
+            pendingAction = pendingAction,
+            onAction = onAction,
         )
     }
 }
@@ -430,6 +444,8 @@ private fun PlayerProgress(
 private fun TransportControls(
     state: String,
     controls: PlayerControls,
+    pendingAction: PlayerAction?,
+    onAction: (PlayerAction) -> Unit,
 ) {
     val playing = state == "playing"
     Row(
@@ -439,23 +455,35 @@ private fun TransportControls(
     ) {
         TransportButton(
             type = TransportIcon.Previous,
+            action = PlayerAction.Previous,
             enabled = controls.previous,
+            pending = pendingAction == PlayerAction.Previous,
+            onClick = onAction,
         )
         Spacer(modifier = Modifier.size(10.dp))
         TransportButton(
             type = TransportIcon.Stop,
+            action = PlayerAction.Stop,
             enabled = controls.stop,
+            pending = pendingAction == PlayerAction.Stop,
+            onClick = onAction,
         )
         Spacer(modifier = Modifier.size(10.dp))
         TransportButton(
             type = if (playing) TransportIcon.Pause else TransportIcon.Play,
+            action = if (playing) PlayerAction.Pause else PlayerAction.Play,
             enabled = if (playing) controls.pause else controls.play,
+            pending = pendingAction == if (playing) PlayerAction.Pause else PlayerAction.Play,
             primary = true,
+            onClick = onAction,
         )
         Spacer(modifier = Modifier.size(10.dp))
         TransportButton(
             type = TransportIcon.Next,
+            action = PlayerAction.Next,
             enabled = controls.next,
+            pending = pendingAction == PlayerAction.Next,
+            onClick = onAction,
         )
     }
 }
@@ -463,8 +491,11 @@ private fun TransportControls(
 @Composable
 private fun TransportButton(
     type: TransportIcon,
+    action: PlayerAction,
     enabled: Boolean,
+    pending: Boolean,
     primary: Boolean = false,
+    onClick: (PlayerAction) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
     val size = if (primary) 62.dp else 46.dp
@@ -474,23 +505,28 @@ private fun TransportButton(
         Brush.linearGradient(listOf(colors.surfaceRaised, colors.surfaceRaised))
     }
 
-    Box(
-        modifier = Modifier
-            .size(size)
-            .background(background, RoundedCornerShape(if (primary) 14.dp else 12.dp))
-            .then(
-                Modifier.background(
-                    if (enabled) Color.Transparent else colors.canvas.copy(alpha = 0.45f),
-                    RoundedCornerShape(if (primary) 14.dp else 12.dp),
-                ),
-            ),
-        contentAlignment = Alignment.Center,
+    Surface(
+        onClick = { onClick(action) },
+        enabled = enabled && !pending,
+        modifier = Modifier.size(size),
+        shape = RoundedCornerShape(if (primary) 14.dp else 12.dp),
+        color = Color.Transparent,
     ) {
-        TransportGlyph(
-            type = type,
-            color = if (primary) Color.White else colors.textSoft,
-            modifier = Modifier.size(if (primary) 28.dp else 21.dp),
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(background)
+                .background(
+                    if (enabled && !pending) Color.Transparent else colors.canvas.copy(alpha = 0.48f),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            TransportGlyph(
+                type = type,
+                color = if (primary) Color.White else colors.textSoft,
+                modifier = Modifier.size(if (primary) 28.dp else 21.dp),
+            )
+        }
     }
 }
 
@@ -575,32 +611,37 @@ private fun VolumeRail(
     val colors = LocalProAudioColors.current
     val normalized = (percent / 100f).coerceIn(0f, 1f)
 
-    Box(
+    Canvas(
         modifier = Modifier
             .fillMaxWidth()
             .height(18.dp),
-        contentAlignment = Alignment.CenterStart,
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .background(colors.surfaceInset, CircleShape),
+        val trackHeight = 4.dp.toPx()
+        val thumbRadius = 7.dp.toPx()
+        val centerY = size.height / 2f
+        val usableWidth = (size.width - thumbRadius * 2f).coerceAtLeast(0f)
+        val startX = thumbRadius
+        val endX = startX + usableWidth
+        val thumbX = startX + usableWidth * normalized
+
+        drawRoundRect(
+            color = colors.surfaceInset,
+            topLeft = Offset(startX, centerY - trackHeight / 2f),
+            size = Size(usableWidth, trackHeight),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f),
         )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(if (muted) 0f else normalized)
-                .height(4.dp)
-                .background(
-                    if (muted) colors.danger else colors.blueAccent,
-                    CircleShape,
-                ),
-        )
-        Box(
-            modifier = Modifier
-                .padding(start = ((normalized * 300f).coerceAtMost(300f)).dp)
-                .size(14.dp)
-                .background(colors.text, CircleShape),
+        if (!muted && normalized > 0f) {
+            drawRoundRect(
+                color = colors.blueAccent,
+                topLeft = Offset(startX, centerY - trackHeight / 2f),
+                size = Size((thumbX - startX).coerceAtLeast(0f), trackHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f),
+            )
+        }
+        drawCircle(
+            color = if (muted) colors.textMuted else colors.text,
+            radius = thumbRadius,
+            center = Offset(thumbX, centerY),
         )
     }
 }
