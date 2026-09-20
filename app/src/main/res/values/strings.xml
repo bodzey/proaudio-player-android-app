@@ -70,7 +70,7 @@
     <string name="nav_player">Плеєр</string>
     <string name="nav_media">Медіа</string>
     <string name="nav_radio">Радіо</string>
-    <string name="nav_alerts">Оповіщення</string>
+    <string name="nav_alerts">Тривоги</string>
     <string name="nav_alerts_active">Оповіщення, активна тривога</string>
     <string name="media_eyebrow">ЛОКАЛЬНЕ МЕДІА</string>
     <string name="media_title">Медіатека плеєра</string>
@@ -97,8 +97,6 @@
     <string name="media_library_updating">Оновлення індексу…</string>
     <string name="media_library_play">Відтворити файл</string>
     <string name="media_library_limit">Показано перші %1$d із %2$d результатів. Уточніть пошук.</string>
-    <string name="media_busy">Виконується команда…</string>
-    <string name="radio_port_pending">Нативний розділ радіо використовуватиме той самий API та буде перенесений наступним етапом.</string>
     <string name="radio_eyebrow">ІНТЕРНЕТ-РАДІО</string>
     <string name="radio_title">Популярні радіостанції</string>
     <string name="radio_description">Прямі потоки запускаються через локальний MPD-плеєр. Метадані ефіру автоматично з’являються у блоці «Зараз відтворюється».</string>
@@ -121,7 +119,6 @@
     <string name="radio_supported_formats">Підтримуються прямі HTTP/HTTPS MP3, AAC, M3U/M3U8 та інші формати, які може відкрити MPD/FFmpeg у плеєрі.</string>
     <string name="radio_retry">Повторити</string>
     <string name="radio_loading_catalog">Завантаження каталогу…</string>
-    <string name="alerts_port_pending">Нативний розділ оповіщень використовуватиме той самий API та буде перенесений наступним етапом.</string>
     <string name="player_previous">Попередній</string>
     <string name="player_stop">Стоп</string>
     <string name="player_play">Відтворити</string>
