@@ -54,7 +54,7 @@ class PlayerViewModel(
 
     init {
         savedStateHandle.get<String>(KEY_SELECTED_DEVICE_ID)
-            ?.let(DeviceId::parse)
+            ?.let { value -> runCatching { DeviceId.parse(value) }.getOrNull() }
             ?.let(sessionRepository::select)
 
         viewModelScope.launch {
