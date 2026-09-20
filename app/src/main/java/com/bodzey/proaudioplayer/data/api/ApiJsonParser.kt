@@ -87,6 +87,7 @@ internal class ApiJsonParser(
 
         return PlayerStatus(
             name = root.requiredString("name"),
+            audioTopologyRevision = root.optionalLong("audio_topology_revision"),
             master = master,
             music = music,
             priority = PriorityState(
