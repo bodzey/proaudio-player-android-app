@@ -59,15 +59,17 @@ interface DeviceDiscoverySource {
 }
 ```
 
-The first implementation is Android DNS-SD/mDNS through `NsdManager`. Future discovery mechanisms can be composed without changing feature UI.
+The first implementation is Android DNS-SD/mDNS through `NsdManager`. On modern Android it tracks resolved service information continuously so address and TXT-record changes are delivered without polling. Older supported Android versions use a serialized legacy resolve path. Future discovery mechanisms can be composed without changing feature UI.
 
-The firmware/deployment advertisement contract will provide at least:
+The firmware/deployment advertisement contract is:
 
-- stable device/instance ID;
-- service type;
-- API major version;
-- TCP port;
-- human-readable service name.
+- DNS-SD service type: `_proaudio-player._tcp.`;
+- TXT `id`: persistent canonical UUID for the physical device or deployment instance;
+- TXT `api`: positive major version of the control API;
+- TXT `name`: optional human-readable display name;
+- SRV port: current control API TCP port.
+
+The Android client treats IP addresses as transient resolution results. The DNS-SD service name is used only to track an advertisement within a discovery session; it is never the primary device identity.
 
 ## Sessions and load
 
