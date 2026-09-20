@@ -1,5 +1,6 @@
 package com.bodzey.proaudioplayer.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,6 +28,10 @@ fun ProAudioPlayerApp(
     showDemoControls: Boolean,
 ) {
     val selectedDeviceId = playerViewModel.selectedDeviceId.collectAsStateWithLifecycle()
+
+    BackHandler(enabled = selectedDeviceId.value != null) {
+        playerViewModel.close()
+    }
 
     if (selectedDeviceId.value == null) {
         val devices = devicesViewModel.devices.collectAsStateWithLifecycle()
