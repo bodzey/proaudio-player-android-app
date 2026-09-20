@@ -3,11 +3,12 @@
     <string name="app_name">ProAudio Player</string>
 
     <string name="devices_title">Оберіть плеєр</string>
-    <string name="devices_subtitle">Доступні ProAudio Player у локальній мережі</string>
+    <string name="devices_subtitle">ProAudio Player у локальній мережі та останні відомі пристрої</string>
     <string name="devices_scanning">Пошук</string>
     <string name="devices_searching">Шукаємо плеєри у мережі…</string>
     <string name="devices_searching_support">Плеєр з’явиться тут автоматично після виявлення через локальну мережу.</string>
     <string name="device_online">Онлайн</string>
+    <string name="device_offline">Офлайн</string>
     <string name="device_api_version">API v%1$d</string>
     <string name="demo_devices">Демо-плеєри</string>
     <string name="demo_devices_hint">Лише для debug-збірки</string>
