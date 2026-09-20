@@ -281,7 +281,8 @@ private fun DemoControl(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 10.dp, horizontal = 4.dp),
+            .padding(horizontal = 4.dp)
+            .padding(top = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
