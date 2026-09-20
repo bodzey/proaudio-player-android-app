@@ -31,16 +31,19 @@ fun ProAudioPlayerApp(
         val pendingAction = playerViewModel.pendingAction.collectAsStateWithLifecycle()
         val actionError = playerViewModel.actionError.collectAsStateWithLifecycle()
         val section = playerViewModel.section.collectAsStateWithLifecycle()
-        val masterControlBusy = playerViewModel.masterControlBusy.collectAsStateWithLifecycle()
+        val masterMuteBusy = playerViewModel.masterMuteBusy.collectAsStateWithLifecycle()
+        val masterVolumeOverride =
+            playerViewModel.masterVolumeOverride.collectAsStateWithLifecycle()
         PlayerScreen(
             state = sessionState.value,
             section = section.value,
             pendingAction = pendingAction.value,
-            masterControlBusy = masterControlBusy.value,
+            masterMuteBusy = masterMuteBusy.value,
+            masterVolumeOverride = masterVolumeOverride.value,
             actionError = actionError.value,
             onSectionSelected = playerViewModel::selectSection,
             onAction = playerViewModel::performAction,
-            onMasterVolumeCommitted = playerViewModel::setMasterVolume,
+            onMasterVolumeChange = playerViewModel::setMasterVolume,
             onMasterMuteChange = playerViewModel::setMasterMuted,
             onBack = playerViewModel::close,
         )
