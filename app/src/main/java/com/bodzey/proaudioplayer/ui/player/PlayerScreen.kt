@@ -56,6 +56,7 @@ import java.util.Locale
 fun PlayerScreen(
     state: PlayerSessionState,
     pendingAction: PlayerAction?,
+    actionError: String?,
     onAction: (PlayerAction) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -109,6 +110,12 @@ fun PlayerScreen(
                         color = colors.textSoft,
                         style = MaterialTheme.typography.labelLarge,
                     )
+                }
+            }
+
+            if (actionError != null) {
+                item {
+                    ActionError(message = actionError)
                 }
             }
 
@@ -643,6 +650,32 @@ private fun VolumeRail(
             radius = thumbRadius,
             center = Offset(thumbX, centerY),
         )
+    }
+}
+
+@Composable
+private fun ActionError(
+    message: String,
+) {
+    val colors = LocalProAudioColors.current
+    ProAudioPanel(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(colors.danger, CircleShape),
+            )
+            Text(
+                text = message,
+                modifier = Modifier.weight(1f),
+                color = colors.textSoft,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
 
