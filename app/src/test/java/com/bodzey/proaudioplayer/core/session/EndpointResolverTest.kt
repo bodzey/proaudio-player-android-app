@@ -80,6 +80,17 @@ class EndpointResolverTest {
             action: PlayerAction,
         ) = error("Not used")
 
+        override suspend fun setMasterVolume(
+            endpoint: DeviceEndpoint,
+            percent: Double,
+        ) = error("Not used")
+
+        override suspend fun setMasterMute(
+            endpoint: DeviceEndpoint,
+            db: Double,
+            muted: Boolean,
+        ) = error("Not used")
+
         override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> =
             emptyFlow()
     }
