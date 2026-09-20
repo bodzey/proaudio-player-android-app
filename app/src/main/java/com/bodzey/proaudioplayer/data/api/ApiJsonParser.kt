@@ -2,6 +2,10 @@ package com.bodzey.proaudioplayer.data.api
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
+import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
+import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
+import com.bodzey.proaudioplayer.core.api.AlertMediaFile
+import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.AudioLevelState
 import com.bodzey.proaudioplayer.core.api.MpdState
 import com.bodzey.proaudioplayer.core.api.PlayerControls
@@ -78,8 +82,23 @@ internal class ApiJsonParser(
             master = master,
             music = music,
             priority = PriorityState(
+                mode = priorityObject.optionalString("mode").orEmpty(),
                 active = priorityObject.optionalBoolean("active") ?: false,
                 blocking = priorityObject.optionalBoolean("blocking") ?: false,
+                duckOnlyDuringAnnouncement =
+                    priorityObject.optionalBoolean("duck_only_during_announcement") ?: false,
+                minuteSilenceActive =
+                    priorityObject.optionalBoolean("minute_silence_active") ?: false,
+                matchedUids = priorityObject
+                    ?.get("matched_uids")
+                    ?.jsonArray
+                    ?.mapNotNull { value ->
+                        value.jsonPrimitive.contentOrNull?.toLongOrNull()
+                    }
+                    .orEmpty(),
+                lastSuccessAt = priorityObject.optionalString("last_success_at"),
+                lastChangeAt = priorityObject.optionalString("last_change_at"),
+                lastError = priorityObject.optionalString("last_error"),
             ),
             mpd = MpdState(
                 isStream = mpdObject.optionalBoolean("is_stream") ?: false,
@@ -102,6 +121,91 @@ internal class ApiJsonParser(
         )
     }
 
+
+
+    fun alertProviderSettings(payload: String): AlertProviderSettings {
+        val root = objectRoot(payload)
+        return AlertProviderSettings(
+            endpoint = root.requiredString("endpoint"),
+            locationUid = root.requiredLong("location_uid"),
+            locationType = root.requiredString("location_type"),
+            pollIntervalSeconds = root.requiredDouble("poll_interval_seconds"),
+            requestTimeoutSeconds = root.requiredDouble("request_timeout_seconds"),
+            rateLimitBackoffSeconds = root.requiredDouble("rate_limit_backoff_seconds"),
+            clearConfirmations = root.requiredPositiveInt("clear_confirmations"),
+            tokenConfigured = root.requiredBoolean("token_configured"),
+        )
+    }
+
+    fun alertAudioSettings(payload: String): AlertAudioSettings {
+        val root = objectRoot(payload)
+        return AlertAudioSettings(
+            airRaidAlertsEnabled = root.requiredBoolean("air_raid_alerts_enabled"),
+            duckDb = root.requiredDouble("duck_db"),
+            duckFadeSeconds = root.requiredDouble("duck_fade_seconds"),
+            restoreFadeSeconds = root.requiredDouble("restore_fade_seconds"),
+            alertVolumePercent = root.requiredDouble("alert_volume_percent"),
+            defaultRestoreVolumePercent =
+                root.requiredDouble("default_restore_volume_percent"),
+            minuteSilenceVolumePercent =
+                root.requiredDouble("minute_silence_volume_percent"),
+            minuteSilenceEnabled = root.requiredBoolean("minute_silence_enabled"),
+            minuteSilenceStartTime = root.requiredString("minute_silence_start_time"),
+            minuteSilenceTimezone = root.requiredString("minute_silence_timezone"),
+            minuteSilenceCatchUpSeconds =
+                root.requiredLong("minute_silence_catch_up_seconds"),
+            minuteSilenceMusicFadeSeconds =
+                root.requiredDouble("minute_silence_music_fade_seconds"),
+            alertRepeatIntervalMinutes =
+                root.requiredLong("alert_repeat_interval_minutes"),
+            duckOnlyDuringAnnouncement =
+                root.requiredBoolean("duck_only_during_announcement"),
+            sampleRateMode = root.requiredString("sample_rate_mode"),
+            sampleRate = root.requiredPositiveInt("sample_rate"),
+            allowedSampleRates = root["allowed_sample_rates"]
+                ?.jsonArray
+                ?.mapNotNull { value -> value.jsonPrimitive.intOrNull }
+                .orEmpty(),
+        )
+    }
+
+    fun alertMedia(payload: String): AlertMediaCatalog {
+        val root = objectRoot(payload)
+        val items = root["items"]
+            ?.jsonArray
+            ?.mapNotNull { element ->
+                val item = runCatching { element.jsonObject }.getOrNull()
+                    ?: return@mapNotNull null
+                val kind = item.optionalString("kind")?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                val label = item.optionalString("label")?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                val fileName = item.optionalString("file_name")?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+
+                AlertMediaFile(
+                    kind = kind,
+                    label = label,
+                    fileName = fileName,
+                    configured = item.optionalBoolean("configured") ?: false,
+                    sizeBytes = item.optionalLong("size_bytes"),
+                    modifiedUnixSeconds = item.optionalLong("modified_unix_seconds"),
+                    maxSizeBytes = item.optionalLong("max_size_bytes") ?: 0L,
+                    contentType = item.optionalString("content_type").orEmpty(),
+                )
+            }
+            .orEmpty()
+
+        return AlertMediaCatalog(
+            items = items,
+            acceptedContentTypes = root["accepted_content_types"]
+                ?.jsonArray
+                ?.mapNotNull { value -> value.jsonPrimitive.contentOrNull }
+                ?.toSet()
+                .orEmpty(),
+            maxSizeBytes = root.requiredLong("max_size_bytes"),
+        )
+    }
 
     fun radioStations(payload: String): List<RadioStation> {
         val root = objectRoot(payload)
@@ -171,6 +275,11 @@ internal class ApiJsonParser(
         this[key]?.jsonPrimitive?.doubleOrNull
             ?: throw ApiProtocolException("Missing or invalid '" + key + "'")
 
+    private fun JsonObject.requiredLong(key: String): Long =
+        this[key]?.jsonPrimitive?.contentOrNull
+            ?.toLongOrNull()
+            ?: throw ApiProtocolException("Missing or invalid '" + key + "'")
+
     private fun JsonObject.requiredBoolean(key: String): Boolean =
         this[key]?.jsonPrimitive?.booleanOrNull
             ?: throw ApiProtocolException("Missing or invalid '" + key + "'")
@@ -180,6 +289,9 @@ internal class ApiJsonParser(
 
     private fun JsonObject?.optionalBoolean(key: String): Boolean? =
         this?.get(key)?.jsonPrimitive?.booleanOrNull
+
+    private fun JsonObject?.optionalLong(key: String): Long? =
+        this?.get(key)?.jsonPrimitive?.contentOrNull?.toLongOrNull()
 
     private fun JsonObject?.optionalString(key: String): String? =
         this?.get(key)?.jsonPrimitive?.contentOrNull
