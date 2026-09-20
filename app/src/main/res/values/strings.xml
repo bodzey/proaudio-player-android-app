@@ -30,6 +30,11 @@
     <string name="now_playing">Зараз відтворюється</string>
     <string name="no_active_stream">Немає активного потоку</string>
     <string name="master_output">MASTER OUTPUT</string>
+    <string name="player_previous">Попередній</string>
+    <string name="player_stop">Стоп</string>
+    <string name="player_play">Відтворити</string>
+    <string name="player_pause">Пауза</string>
+    <string name="player_next">Наступний</string>
 
     <plurals name="device_endpoint_count">
         <item quantity="one">%1$d мережева адреса</item>
