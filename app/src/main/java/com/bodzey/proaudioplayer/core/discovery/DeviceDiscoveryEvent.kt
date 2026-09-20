@@ -1,14 +1,14 @@
 package com.bodzey.proaudioplayer.core.discovery
 
-import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.model.DiscoveredDevice
 
 sealed interface DeviceDiscoveryEvent {
     data class Available(
+        val presenceId: DiscoveryPresenceId,
         val device: DiscoveredDevice,
     ) : DeviceDiscoveryEvent
 
     data class Unavailable(
-        val deviceId: DeviceId,
+        val presenceId: DiscoveryPresenceId,
     ) : DeviceDiscoveryEvent
 }
