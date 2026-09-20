@@ -8,6 +8,7 @@ import com.bodzey.proaudioplayer.ui.devices.DevicesScreen
 import com.bodzey.proaudioplayer.ui.devices.DevicesViewModel
 import com.bodzey.proaudioplayer.ui.media.MediaViewModel
 import com.bodzey.proaudioplayer.ui.meter.MeterViewModel
+import com.bodzey.proaudioplayer.ui.mixer.MixerViewModel
 import com.bodzey.proaudioplayer.ui.output.OutputViewModel
 import com.bodzey.proaudioplayer.ui.player.PlayerScreen
 import com.bodzey.proaudioplayer.ui.player.PlayerViewModel
@@ -18,6 +19,7 @@ fun ProAudioPlayerApp(
     devicesViewModel: DevicesViewModel,
     playerViewModel: PlayerViewModel,
     meterViewModel: MeterViewModel,
+    mixerViewModel: MixerViewModel,
     mediaViewModel: MediaViewModel,
     outputViewModel: OutputViewModel,
     radioViewModel: RadioViewModel,
@@ -45,6 +47,7 @@ fun ProAudioPlayerApp(
         val masterMuteBusy = playerViewModel.masterMuteBusy.collectAsStateWithLifecycle()
         val masterVolumeOverride =
             playerViewModel.masterVolumeOverride.collectAsStateWithLifecycle()
+        val mixerState = mixerViewModel.uiState.collectAsStateWithLifecycle()
         val mediaState = mediaViewModel.uiState.collectAsStateWithLifecycle()
         val outputState = outputViewModel.uiState.collectAsStateWithLifecycle()
         val radioState = radioViewModel.uiState.collectAsStateWithLifecycle()
@@ -60,10 +63,13 @@ fun ProAudioPlayerApp(
                 section.value == AppSection.Player && connected -> {
                     val connectedState = sessionState.value as?
                         com.bodzey.proaudioplayer.core.session.PlayerSessionState.Connected
-                    if (connectedState != null &&
-                        "audio_outputs" in connectedState.capabilities.features
-                    ) {
-                        outputViewModel.ensureLoaded()
+                    if (connectedState != null) {
+                        if ("audio_outputs" in connectedState.capabilities.features) {
+                            outputViewModel.ensureLoaded()
+                        }
+                        if ("audio_mixer" in connectedState.capabilities.features) {
+                            mixerViewModel.ensureLoaded()
+                        }
                     }
                 }
                 section.value == AppSection.Media && connected ->
@@ -85,6 +91,7 @@ fun ProAudioPlayerApp(
             radioState = radioState.value,
             alertsState = alertsState.value,
             meterState = meterViewModel.state,
+            mixerState = mixerState.value,
             outputState = outputState.value,
             mediaState = mediaState.value,
             onSectionSelected = playerViewModel::selectSection,
@@ -93,6 +100,9 @@ fun ProAudioPlayerApp(
             onMasterMuteChange = playerViewModel::setMasterMuted,
             onOutputRefresh = outputViewModel::refresh,
             onOutputSelect = outputViewModel::select,
+            onMixerRefresh = mixerViewModel::refresh,
+            onMixerLevelChange = mixerViewModel::setLevel,
+            onMixerMuteChange = mixerViewModel::setMuted,
             onMediaRefresh = mediaViewModel::refresh,
             onMediaRefreshLibrary = mediaViewModel::refreshLibrary,
             onMediaLibraryQueryChange = mediaViewModel::setLibraryQuery,
