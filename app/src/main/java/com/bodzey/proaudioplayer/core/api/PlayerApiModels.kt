@@ -69,6 +69,7 @@ data class RadioStation(
 
 data class PlayerStatus(
     val name: String,
+    val audioTopologyRevision: Long?,
     val master: AudioLevelState,
     val music: AudioLevelState,
     val priority: PriorityState,
