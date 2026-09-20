@@ -2,6 +2,7 @@ package com.bodzey.proaudioplayer.data.api
 
 import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
+import com.bodzey.proaudioplayer.core.api.MixerTarget
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import kotlinx.coroutines.flow.first
@@ -690,6 +691,39 @@ class OkHttpPlayerApiClientTest {
             assertEquals("""{"position":2}""", remove.body?.utf8())
             assertEquals("POST /api/v1/queue/clear HTTP/1.1", clear.requestLine)
             assertEquals("{}", clear.body?.utf8())
+        }
+    }
+
+    @Test
+    fun mixerUsesCanonicalGetAndPostContract() {
+        MockWebServer().use { server ->
+            server.start()
+            val body =
+                """{"music":{"name":"music","volume":80.0,"db":-5.8,"muted":false},"alert":{"name":"alert","volume":70.0,"db":-9.3,"muted":false},"master":{"name":"master","volume":90.0,"db":-2.7,"muted":false}}"""
+            server.enqueue(MockResponse.Builder().body(body).build())
+            server.enqueue(MockResponse.Builder().body(body).build())
+
+            val api = OkHttpPlayerApiClient(client = OkHttpClient())
+            val endpoint = DeviceEndpoint(server.hostName, server.port)
+
+            runBlocking {
+                api.mixer(endpoint)
+                api.setMixer(
+                    endpoint = endpoint,
+                    target = MixerTarget.Alert,
+                    db = -12.0,
+                    muted = true,
+                )
+            }
+
+            val get = server.takeRequest()
+            val post = server.takeRequest()
+            assertEquals("GET /api/v1/audio/mixer HTTP/1.1", get.requestLine)
+            assertEquals("POST /api/v1/audio/mixer HTTP/1.1", post.requestLine)
+            assertEquals(
+                """{"target":"alert","db":-12.0,"muted":true}""",
+                post.body?.utf8(),
+            )
         }
     }
 
