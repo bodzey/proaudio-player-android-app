@@ -12,6 +12,13 @@ interface PlayerApiClient {
     suspend fun setMasterMute(endpoint: DeviceEndpoint, db: Double, muted: Boolean)
     suspend fun radioStations(endpoint: DeviceEndpoint): List<RadioStation>
     suspend fun playStream(endpoint: DeviceEndpoint, url: String)
+    suspend fun mixer(endpoint: DeviceEndpoint): MixerState
+    suspend fun setMixer(
+        endpoint: DeviceEndpoint,
+        target: MixerTarget,
+        db: Double,
+        muted: Boolean,
+    ): MixerState
     suspend fun audioOutputs(endpoint: DeviceEndpoint): List<AudioOutputDescriptor>
     suspend fun selectAudioOutput(
         endpoint: DeviceEndpoint,
