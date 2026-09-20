@@ -61,6 +61,7 @@
     <string name="outputs_refresh">Оновити виходи</string>
     <string name="outputs_loading">Пошук аудіовиходів…</string>
     <string name="outputs_empty">Доступних фізичних аудіовиходів не знайдено</string>
+    <string name="outputs_blocked">Перемикання фізичного виходу заблоковано активним пріоритетним оповіщенням.</string>
     <string name="outputs_selected">ВИБРАНО</string>
     <string name="outputs_unavailable">НЕДОСТУПНИЙ</string>
     <string name="outputs_select">Вибрати</string>
