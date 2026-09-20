@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -304,53 +305,81 @@ private fun ConnectedState(
     val colors = LocalProAudioColors.current
     val player = state.status.player
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        ProAudioPanel(
-            modifier = Modifier.fillMaxWidth(),
+    BoxWithConstraints {
+        val wide = maxWidth >= 700.dp
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column {
-                PlayerArtwork(
-                    source = player.source,
-                )
-                PlayerMeta(
-                    player = player,
-                    pendingAction = pendingAction,
-                    onAction = onAction,
-                )
+            ProAudioPanel(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (wide) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier.weight(1.08f),
+                        ) {
+                            PlayerArtwork(
+                                source = player.source,
+                            )
+                        }
+                        Box(
+                            modifier = Modifier.weight(0.92f),
+                        ) {
+                            PlayerMeta(
+                                player = player,
+                                pendingAction = pendingAction,
+                                onAction = onAction,
+                            )
+                        }
+                    }
+                } else {
+                    Column {
+                        PlayerArtwork(
+                            source = player.source,
+                        )
+                        PlayerMeta(
+                            player = player,
+                            pendingAction = pendingAction,
+                            onAction = onAction,
+                        )
+                    }
+                }
             }
-        }
 
-        MasterOutputControl(
-            master = state.status.master,
-            muteBusy = masterMuteBusy,
-            volumeOverride = masterVolumeOverride,
-            onVolumeChange = onMasterVolumeChange,
-            onMuteChange = onMasterMuteChange,
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = state.endpoint.host.let {
-                    if (':' in it) "IPv6" else "IPv4"
-                } + " · API v" + state.capabilities.apiMajorVersion,
-                color = colors.textMuted,
-                style = MaterialTheme.typography.labelLarge,
-                fontFamily = FontFamily.Monospace,
+            MasterOutputControl(
+                master = state.status.master,
+                muteBusy = masterMuteBusy,
+                volumeOverride = masterVolumeOverride,
+                onVolumeChange = onMasterVolumeChange,
+                onMuteChange = onMasterMuteChange,
             )
-            state.capabilities.eventTransport?.let {
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
                 Text(
-                    text = it.uppercase(),
+                    text = state.endpoint.host.let {
+                        if (':' in it) "IPv6" else "IPv4"
+                    } + " · API v" + state.capabilities.apiMajorVersion,
                     color = colors.textMuted,
                     style = MaterialTheme.typography.labelLarge,
                     fontFamily = FontFamily.Monospace,
                 )
+                state.capabilities.eventTransport?.let {
+                    Text(
+                        text = it.uppercase(),
+                        color = colors.textMuted,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
             }
         }
     }
