@@ -1,28 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ProAudio Player</string>
-    <string name="devices_title">Players</string>
-    <string name="devices_searching">Searching for ProAudio Player devices…</string>
-    <string name="devices_searching_support">Keep this screen open while players are discovered on the local network.</string>
-    <string name="device_online">Online</string>
-    <string name="device_api_version">API v%1$d</string>
-    <string name="demo_devices">Demo devices</string>
 
-    <string name="back">Back</string>
-    <string name="player_connecting">Connecting to player…</string>
-    <string name="player_connected">Connected</string>
-    <string name="player_offline">Player offline</string>
-    <string name="player_offline_support">The selected player is no longer being advertised on the local network.</string>
-    <string name="player_source">Source</string>
-    <string name="player_state">State</string>
-    <string name="player_volume">Volume</string>
+    <string name="devices_title">Оберіть плеєр</string>
+    <string name="devices_subtitle">Доступні ProAudio Player у локальній мережі</string>
+    <string name="devices_scanning">Пошук</string>
+    <string name="devices_searching">Шукаємо плеєри у мережі…</string>
+    <string name="devices_searching_support">Плеєр з’явиться тут автоматично після виявлення через локальну мережу.</string>
+    <string name="device_online">Онлайн</string>
+    <string name="device_api_version">API v%1$d</string>
+    <string name="demo_devices">Демо-плеєри</string>
+    <string name="demo_devices_hint">Лише для debug-збірки</string>
+
+    <string name="back">Назад</string>
+    <string name="back_to_players">Плеєри</string>
+    <string name="player_connecting">Підключення до плеєра…</string>
+    <string name="player_connecting_short">Підключення</string>
+    <string name="player_connected">Онлайн</string>
+    <string name="player_offline">Офлайн</string>
+    <string name="player_offline_support">Вибраний плеєр більше не рекламується у локальній мережі.</string>
+    <string name="player_source">Джерело</string>
+    <string name="player_state">Стан</string>
+    <string name="player_volume">Гучність</string>
     <string name="player_endpoint">Endpoint</string>
     <string name="player_api">API</string>
-    <string name="player_events">Events</string>
-    <string name="player_muted">Muted</string>
+    <string name="player_events">Події</string>
+    <string name="player_muted">MUTE</string>
+    <string name="player_no_source">Без джерела</string>
+    <string name="now_playing">Зараз відтворюється</string>
+    <string name="no_active_stream">Немає активного потоку</string>
+    <string name="master_output">MASTER OUTPUT</string>
 
     <plurals name="device_endpoint_count">
         <item quantity="one">%1$d endpoint</item>
+        <item quantity="few">%1$d endpoints</item>
+        <item quantity="many">%1$d endpoints</item>
         <item quantity="other">%1$d endpoints</item>
     </plurals>
 </resources>
