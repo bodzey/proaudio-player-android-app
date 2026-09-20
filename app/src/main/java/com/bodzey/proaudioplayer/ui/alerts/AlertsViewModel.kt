@@ -534,7 +534,7 @@ class AlertsViewModel(
             KEY_PROVIDER_TIMEOUT,
             KEY_PROVIDER_BACKOFF,
             KEY_PROVIDER_CLEAR_CONFIRMATIONS,
-        ).forEach(savedStateHandle::remove<Any?>)
+        ).forEach { key -> savedStateHandle.remove<Any?>(key) }
     }
 
     private fun persistAudioDraft(
@@ -613,7 +613,7 @@ class AlertsViewModel(
             KEY_AUDIO_MINUTE_FADE,
             KEY_AUDIO_REPEAT,
             KEY_AUDIO_TALKOVER,
-        ).forEach(savedStateHandle::remove<Any?>)
+        ).forEach { key -> savedStateHandle.remove<Any?>(key) }
     }
 
     private suspend fun <T> capture(block: suspend () -> T): Result<T> =
