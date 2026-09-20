@@ -306,4 +306,61 @@ class ApiJsonParserTest {
         assertFalse(frame.alert.available)
     }
 
+    @Test
+    fun extendedResourcesParseStableShapes() {
+        val outputs = parser.audioOutputs(
+            """
+            {
+              "items":[
+                {
+                  "id":"alsa_output.usb-DAC",
+                  "name":"USB DAC",
+                  "state":"RUNNING",
+                  "device_class":"sound",
+                  "alsa_card":2,
+                  "selected":true,
+                  "available":true,
+                  "capabilities":{
+                    "sample_format":"s32le",
+                    "sample_rate":48000,
+                    "channels":2,
+                    "channel_map":["front-left","front-right"],
+                    "alsa_device":0,
+                    "device_api":"alsa",
+                    "device_bus":"usb"
+                  }
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+        val library = parser.stringItems(
+            """{"items":["music/track.flac","music/second.mp3"]}""",
+        )
+        val queue = parser.queueItems(
+            """
+            {
+              "items":[
+                {
+                  "position":1,
+                  "file":"music/track.flac",
+                  "title":"Track",
+                  "artist":"Artist",
+                  "album":"Album"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(1, outputs.size)
+        assertEquals("USB DAC", outputs.single().name)
+        assertTrue(outputs.single().selected)
+        assertEquals(48000, outputs.single().capabilities.sampleRate)
+        assertEquals(listOf("music/track.flac", "music/second.mp3"), library)
+        assertEquals(1, queue.size)
+        assertEquals(1, queue.single().position)
+        assertEquals("Track", queue.single().title)
+    }
+
 }
