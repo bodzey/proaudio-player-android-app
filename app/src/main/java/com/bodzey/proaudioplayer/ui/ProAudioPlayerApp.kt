@@ -3,6 +3,7 @@ package com.bodzey.proaudioplayer.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bodzey.proaudioplayer.ui.alerts.AlertsViewModel
 import com.bodzey.proaudioplayer.ui.devices.DevicesScreen
 import com.bodzey.proaudioplayer.ui.devices.DevicesViewModel
 import com.bodzey.proaudioplayer.ui.player.PlayerScreen
@@ -14,6 +15,7 @@ fun ProAudioPlayerApp(
     devicesViewModel: DevicesViewModel,
     playerViewModel: PlayerViewModel,
     radioViewModel: RadioViewModel,
+    alertsViewModel: AlertsViewModel,
     showDemoControls: Boolean,
 ) {
     val selectedDeviceId = playerViewModel.selectedDeviceId.collectAsStateWithLifecycle()
@@ -38,6 +40,7 @@ fun ProAudioPlayerApp(
         val masterVolumeOverride =
             playerViewModel.masterVolumeOverride.collectAsStateWithLifecycle()
         val radioState = radioViewModel.uiState.collectAsStateWithLifecycle()
+        val alertsState = alertsViewModel.uiState.collectAsStateWithLifecycle()
         val connected = sessionState.value is com.bodzey.proaudioplayer.core.session.PlayerSessionState.Connected
 
         LaunchedEffect(
@@ -45,8 +48,11 @@ fun ProAudioPlayerApp(
             selectedDeviceId.value,
             connected,
         ) {
-            if (section.value == AppSection.Radio && connected) {
-                radioViewModel.ensureLoaded()
+            when {
+                section.value == AppSection.Radio && connected ->
+                    radioViewModel.ensureLoaded()
+                section.value == AppSection.Alerts && connected ->
+                    alertsViewModel.ensureLoaded()
             }
         }
 
@@ -58,6 +64,7 @@ fun ProAudioPlayerApp(
             masterVolumeOverride = masterVolumeOverride.value,
             actionError = actionError.value,
             radioState = radioState.value,
+            alertsState = alertsState.value,
             onSectionSelected = playerViewModel::selectSection,
             onAction = playerViewModel::performAction,
             onMasterVolumeChange = playerViewModel::setMasterVolume,
@@ -66,6 +73,7 @@ fun ProAudioPlayerApp(
             onRadioStationToggle = radioViewModel::toggleStation,
             onRadioCustomUrlChange = radioViewModel::setCustomUrl,
             onRadioPlayCustom = radioViewModel::playCustomStream,
+            onAlertsRefresh = alertsViewModel::refresh,
             onBack = playerViewModel::close,
         )
     }
