@@ -132,6 +132,49 @@ class DeviceRegistryStateTest {
     }
 
     @Test
+    fun ephemeralOnlyPresenceIsNotPersistable() {
+        val state = DeviceRegistryState().reduce(
+            available(
+                presence = "demo",
+                device = device(
+                    id = deviceId,
+                    host = "192.0.2.10",
+                    persistable = false,
+                ),
+            ),
+        )
+
+        assertTrue(!state.devices.single().persistable)
+    }
+
+    @Test
+    fun persistentPresenceWinsWhenMergedWithEphemeralPresence() {
+        val state = DeviceRegistryState()
+            .reduce(
+                available(
+                    presence = "demo",
+                    device = device(
+                        id = deviceId,
+                        host = "192.0.2.10",
+                        persistable = false,
+                    ),
+                ),
+            )
+            .reduce(
+                available(
+                    presence = "lan",
+                    device = device(
+                        id = deviceId,
+                        host = "192.168.88.50",
+                        persistable = true,
+                    ),
+                ),
+            )
+
+        assertTrue(state.devices.single().persistable)
+    }
+
+    @Test
     fun newestPresenceProvidesDisplayMetadata() {
         val older = device(
             id = deviceId,
@@ -173,6 +216,7 @@ class DeviceRegistryStateTest {
         displayName: String = "ProAudio Player",
         apiMajorVersion: Int = 1,
         observedAt: Instant = Instant.parse("2026-09-20T00:00:00Z"),
+        persistable: Boolean = true,
     ): DiscoveredDevice =
         DiscoveredDevice(
             id = id,
@@ -181,5 +225,6 @@ class DeviceRegistryStateTest {
             apiMajorVersion = apiMajorVersion,
             endpoints = setOf(DeviceEndpoint(host, 8080)),
             observedAt = observedAt,
+            persistable = persistable,
         )
 }
