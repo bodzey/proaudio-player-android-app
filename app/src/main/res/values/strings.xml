@@ -44,6 +44,7 @@
     <string name="meters_unavailable">Метринг недоступний для цього плеєра</string>
     <string name="meters_stream_failed">Потік метрів тимчасово недоступний</string>
     <string name="meters_channel_description">%1$s, %2$s: peak %3$.1f dBFS, RMS %4$.1f dBFS</string>
+    <string name="meters_canvas_description">%1$s: пікові рівні L/R та стерео RMS</string>
     <string name="meters_clip">CLIP</string>
     <string name="master_mute">MUTE MASTER</string>
     <string name="master_unmute">UNMUTE MASTER</string>
