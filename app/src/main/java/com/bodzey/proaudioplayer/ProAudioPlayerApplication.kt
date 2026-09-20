@@ -4,9 +4,10 @@ import android.app.Application
 import android.content.Context
 import com.bodzey.proaudioplayer.core.device.DeviceRegistry
 import com.bodzey.proaudioplayer.core.discovery.CombinedDeviceDiscoverySource
-import com.bodzey.proaudioplayer.core.discovery.demo.DemoDeviceDiscoverySource
+import com.bodzey.proaudioplayer.core.discovery.DeviceDiscoverySource
 import com.bodzey.proaudioplayer.core.discovery.demo.DemoDiscoveryController
 import com.bodzey.proaudioplayer.core.discovery.nsd.AndroidNsdDiscoverySource
+import com.bodzey.proaudioplayer.debug.createDevelopmentDiscoverySource
 
 class ProAudioPlayerApplication : Application() {
     lateinit var container: AppContainer
@@ -23,10 +24,12 @@ class AppContainer(
 ) {
     val demoDiscoveryController = DemoDiscoveryController()
 
-    private val discoverySource = CombinedDeviceDiscoverySource(
+    private val discoverySources: Array<DeviceDiscoverySource> = listOfNotNull(
         AndroidNsdDiscoverySource(context),
-        DemoDeviceDiscoverySource(demoDiscoveryController),
-    )
+        createDevelopmentDiscoverySource(demoDiscoveryController),
+    ).toTypedArray()
 
-    val deviceRegistry = DeviceRegistry(discoverySource)
+    val deviceRegistry = DeviceRegistry(
+        CombinedDeviceDiscoverySource(*discoverySources),
+    )
 }
