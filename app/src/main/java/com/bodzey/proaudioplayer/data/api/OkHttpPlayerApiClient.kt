@@ -7,7 +7,12 @@ import com.bodzey.proaudioplayer.core.api.PlayerStatus
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -26,6 +31,64 @@ class OkHttpPlayerApiClient(
 
     override suspend fun status(endpoint: DeviceEndpoint): PlayerStatus =
         parser.status(get(endpoint, "/api/v1/status"))
+
+    override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> = channelFlow {
+        val request = Request.Builder()
+            .url(endpoint.apiUrl("/api/v1/events"))
+            .header("Accept", "text/event-stream")
+            .header("Cache-Control", "no-cache")
+            .build()
+        val call = client.newCall(request)
+
+        val reader = launch(Dispatchers.IO) {
+            try {
+                call.execute().use { response ->
+                    if (!response.isSuccessful) {
+                        throw PlayerApiException(
+                            statusCode = response.code,
+                            message = "Player event stream returned HTTP " + response.code,
+                        )
+                    }
+
+                    val source = response.body.source()
+                    var eventType: String? = null
+                    val dataLines = mutableListOf<String>()
+
+                    suspend fun dispatchEvent() {
+                        if (eventType == "status" && dataLines.isNotEmpty()) {
+                            send(parser.status(dataLines.joinToString("\n")))
+                        }
+                        eventType = null
+                        dataLines.clear()
+                    }
+
+                    while (!source.exhausted()) {
+                        val line = source.readUtf8Line() ?: break
+                        when {
+                            line.isEmpty() -> dispatchEvent()
+                            line.startsWith(":") -> Unit
+                            line.startsWith("event:") ->
+                                eventType = line.substringAfter(':').trimStart()
+                            line.startsWith("data:") ->
+                                dataLines += line.substringAfter(':').trimStart()
+                        }
+                    }
+
+                    dispatchEvent()
+                }
+                close()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                close(error)
+            }
+        }
+
+        awaitClose {
+            call.cancel()
+            reader.cancel()
+        }
+    }
 
     private suspend fun get(
         endpoint: DeviceEndpoint,
@@ -58,9 +121,9 @@ class OkHttpPlayerApiClient(
         private fun defaultClient(): OkHttpClient =
             OkHttpClient.Builder()
                 .connectTimeout(2, TimeUnit.SECONDS)
-                .readTimeout(4, TimeUnit.SECONDS)
+                .readTimeout(0, TimeUnit.MILLISECONDS)
                 .writeTimeout(4, TimeUnit.SECONDS)
-                .callTimeout(5, TimeUnit.SECONDS)
+                .callTimeout(0, TimeUnit.MILLISECONDS)
                 .retryOnConnectionFailure(false)
                 .build()
     }
