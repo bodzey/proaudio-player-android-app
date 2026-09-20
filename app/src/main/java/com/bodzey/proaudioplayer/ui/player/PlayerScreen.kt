@@ -1,6 +1,8 @@
 package com.bodzey.proaudioplayer.ui.player
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -27,6 +29,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -52,6 +57,8 @@ import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.AppSection
+import com.bodzey.proaudioplayer.ui.alerts.AlertAudioForm
+import com.bodzey.proaudioplayer.ui.alerts.AlertProviderForm
 import com.bodzey.proaudioplayer.ui.alerts.AlertsUiState
 import com.bodzey.proaudioplayer.ui.alerts.alertsSection
 import com.bodzey.proaudioplayer.ui.components.PrimaryNavigation
@@ -85,10 +92,30 @@ fun PlayerScreen(
     onRadioCustomUrlChange: (String) -> Unit,
     onRadioPlayCustom: () -> Unit,
     onAlertsRefresh: () -> Unit,
+    onAlertProviderFormChange: (AlertProviderForm) -> Unit,
+    onAlertProviderTest: () -> Unit,
+    onAlertProviderSave: () -> Unit,
+    onAlertAudioFormChange: (AlertAudioForm) -> Unit,
+    onAlertAudioSave: () -> Unit,
+    onAlertMediaSelected: (String, String) -> Unit,
+    onAlertMediaReset: (String) -> Unit,
+    onAlertMediaResetAll: () -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
     val colors = LocalProAudioColors.current
+    var pendingAlertMediaKind by rememberSaveable {
+        mutableStateOf<String?>(null)
+    }
+    val alertMediaPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        val kind = pendingAlertMediaKind
+        pendingAlertMediaKind = null
+        if (uri != null && kind != null) {
+            onAlertMediaSelected(kind, uri.toString())
+        }
+    }
 
     ProAudioShell {
         LazyColumn(
@@ -188,6 +215,19 @@ fun PlayerScreen(
                         state = alertsState,
                         connected = state,
                         onRefresh = onAlertsRefresh,
+                        onProviderFormChange = onAlertProviderFormChange,
+                        onProviderTest = onAlertProviderTest,
+                        onProviderSave = onAlertProviderSave,
+                        onAudioFormChange = onAlertAudioFormChange,
+                        onAudioSave = onAlertAudioSave,
+                        onPickMedia = { kind ->
+                            pendingAlertMediaKind = kind
+                            alertMediaPicker.launch(
+                                arrayOf("audio/mpeg", "audio/mp3"),
+                            )
+                        },
+                        onResetMedia = onAlertMediaReset,
+                        onResetAllMedia = onAlertMediaResetAll,
                     )
                 }
 
