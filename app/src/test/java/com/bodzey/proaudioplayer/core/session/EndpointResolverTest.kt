@@ -2,6 +2,7 @@ package com.bodzey.proaudioplayer.core.session
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
+import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
@@ -73,6 +74,11 @@ class EndpointResolverTest {
 
         override suspend fun status(endpoint: DeviceEndpoint): PlayerStatus =
             error("Not used")
+
+        override suspend fun playerAction(
+            endpoint: DeviceEndpoint,
+            action: PlayerAction,
+        ) = error("Not used")
 
         override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> =
             emptyFlow()
