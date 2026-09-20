@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -247,7 +248,7 @@ private fun MediaHeader(
                     CircularProgressIndicator(
                         modifier = Modifier
                             .padding(end = 8.dp)
-                            .heightIn(max = 18.dp),
+                            .size(18.dp),
                         strokeWidth = 2.dp,
                         color = colors.accent,
                     )
@@ -369,7 +370,7 @@ private fun QueueItemCard(
                 ) {
                     if (playBusy) {
                         CircularProgressIndicator(
-                            modifier = Modifier.heightIn(max = 18.dp),
+                            modifier = Modifier.size(18.dp),
                             color = colors.text,
                             strokeWidth = 2.dp,
                         )
@@ -427,7 +428,7 @@ private fun LibraryHeader(
             ) {
                 if (refreshing) {
                     CircularProgressIndicator(
-                        modifier = Modifier.heightIn(max = 18.dp),
+                        modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
                         color = colors.accent,
                     )
@@ -494,7 +495,7 @@ private fun MediaActionRow(
             }
             if (busy) {
                 CircularProgressIndicator(
-                    modifier = Modifier.heightIn(max = 20.dp),
+                    modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp,
                     color = colors.accent,
                 )
@@ -519,7 +520,7 @@ private fun MediaLoadingCard() {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             CircularProgressIndicator(
-                modifier = Modifier.heightIn(max = 22.dp),
+                modifier = Modifier.size(22.dp),
                 strokeWidth = 2.dp,
                 color = colors.accent,
             )
