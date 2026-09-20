@@ -57,6 +57,7 @@ import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.api.RadioStation
+import com.bodzey.proaudioplayer.core.meter.MeterState
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.AppSection
 import com.bodzey.proaudioplayer.ui.alerts.AlertAudioForm
@@ -70,10 +71,12 @@ import com.bodzey.proaudioplayer.ui.components.ProAudioShell
 import com.bodzey.proaudioplayer.ui.components.SectionLabel
 import com.bodzey.proaudioplayer.ui.components.StatusBadge
 import com.bodzey.proaudioplayer.ui.components.StatusBadgeState
+import com.bodzey.proaudioplayer.ui.meter.AudioMetersCard
 import com.bodzey.proaudioplayer.ui.radio.RadioUiState
 import com.bodzey.proaudioplayer.ui.radio.radioSection
 import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
 import java.util.Locale
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun PlayerScreen(
@@ -85,6 +88,7 @@ fun PlayerScreen(
     actionError: String?,
     radioState: RadioUiState,
     alertsState: AlertsUiState,
+    meterState: StateFlow<MeterState>,
     onSectionSelected: (AppSection) -> Unit,
     onAction: (PlayerAction) -> Unit,
     onMasterVolumeChange: (Double) -> Unit,
@@ -188,6 +192,7 @@ fun PlayerScreen(
                             pendingAction = pendingAction,
                             masterMuteBusy = masterMuteBusy,
                             masterVolumeOverride = masterVolumeOverride,
+                            meterState = meterState,
                             onAction = onAction,
                             onMasterVolumeChange = onMasterVolumeChange,
                             onMasterMuteChange = onMasterMuteChange,
@@ -298,6 +303,7 @@ private fun ConnectedState(
     pendingAction: PlayerAction?,
     masterMuteBusy: Boolean,
     masterVolumeOverride: Double?,
+    meterState: StateFlow<MeterState>,
     onAction: (PlayerAction) -> Unit,
     onMasterVolumeChange: (Double) -> Unit,
     onMasterMuteChange: (Boolean) -> Unit,
