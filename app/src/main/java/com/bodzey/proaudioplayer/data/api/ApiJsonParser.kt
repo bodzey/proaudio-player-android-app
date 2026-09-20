@@ -6,6 +6,7 @@ import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
 import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
 import com.bodzey.proaudioplayer.core.api.AlertMediaFile
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
+import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
 import com.bodzey.proaudioplayer.core.api.AudioLevelState
 import com.bodzey.proaudioplayer.core.api.MpdState
 import com.bodzey.proaudioplayer.core.api.PlayerControls
@@ -174,25 +175,7 @@ internal class ApiJsonParser(
         val items = root["items"]
             ?.jsonArray
             ?.mapNotNull { element ->
-                val item = runCatching { element.jsonObject }.getOrNull()
-                    ?: return@mapNotNull null
-                val kind = item.optionalString("kind")?.takeIf { it.isNotBlank() }
-                    ?: return@mapNotNull null
-                val label = item.optionalString("label")?.takeIf { it.isNotBlank() }
-                    ?: return@mapNotNull null
-                val fileName = item.optionalString("file_name")?.takeIf { it.isNotBlank() }
-                    ?: return@mapNotNull null
-
-                AlertMediaFile(
-                    kind = kind,
-                    label = label,
-                    fileName = fileName,
-                    configured = item.optionalBoolean("configured") ?: false,
-                    sizeBytes = item.optionalLong("size_bytes"),
-                    modifiedUnixSeconds = item.optionalLong("modified_unix_seconds"),
-                    maxSizeBytes = item.optionalLong("max_size_bytes") ?: 0L,
-                    contentType = item.optionalString("content_type").orEmpty(),
-                )
+                runCatching { alertMediaFile(element.jsonObject) }.getOrNull()
             }
             .orEmpty()
 
@@ -204,6 +187,19 @@ internal class ApiJsonParser(
                 ?.toSet()
                 .orEmpty(),
             maxSizeBytes = root.requiredLong("max_size_bytes"),
+        )
+    }
+
+    fun alertMediaFile(payload: String): AlertMediaFile =
+        alertMediaFile(objectRoot(payload))
+
+    fun alertProviderTest(payload: String): AlertProviderTestResult {
+        val root = objectRoot(payload)
+        return AlertProviderTestResult(
+            ok = root.requiredBoolean("ok"),
+            active = root.requiredBoolean("active"),
+            state = root.requiredString("state"),
+            locationUid = root.requiredLong("location_uid"),
         )
     }
 
@@ -242,6 +238,19 @@ internal class ApiJsonParser(
             }
             .orEmpty()
     }
+
+
+    private fun alertMediaFile(item: JsonObject): AlertMediaFile =
+        AlertMediaFile(
+            kind = item.requiredString("kind"),
+            label = item.requiredString("label"),
+            fileName = item.requiredString("file_name"),
+            configured = item.requiredBoolean("configured"),
+            sizeBytes = item.optionalLong("size_bytes"),
+            modifiedUnixSeconds = item.optionalLong("modified_unix_seconds"),
+            maxSizeBytes = item.requiredLong("max_size_bytes"),
+            contentType = item.requiredString("content_type"),
+        )
 
     private fun objectRoot(payload: String): JsonObject =
         runCatching { json.parseToJsonElement(payload).jsonObject }
