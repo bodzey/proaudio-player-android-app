@@ -44,6 +44,13 @@ class ApiJsonParserTest {
               "name":"ProAudio Player",
               "volume":89.1,
               "muted":false,
+              "audio_levels":{
+                "master":{
+                  "volume":42.5,
+                  "muted":true
+                },
+                "music_bus":89.1
+              },
               "player":{
                 "source":"Spotify Connect",
                 "backend":"spotify-mpris",
@@ -68,8 +75,10 @@ class ApiJsonParserTest {
         )
 
         assertEquals("ProAudio Player", status.name)
-        assertEquals(89.1, status.volumePercent, 0.001)
-        assertFalse(status.muted)
+        assertEquals(42.5, status.master.volumePercent, 0.001)
+        assertTrue(status.master.muted)
+        assertEquals(89.1, status.music.volumePercent, 0.001)
+        assertFalse(status.music.muted)
         assertEquals("Spotify Connect", status.player.source)
         assertEquals("Track", status.player.title)
         assertTrue(status.player.controls.pause)
