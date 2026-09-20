@@ -2,8 +2,12 @@ package com.bodzey.proaudioplayer.core.session
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
+import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
 import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
+import com.bodzey.proaudioplayer.core.api.AlertMediaFile
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
+import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
+import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.RadioStation
@@ -147,6 +151,63 @@ class PlayerSessionRepository(
         val connected = connectedState()
         requireFeature(connected, "alert_media")
         return apiClient.alertMedia(connected.endpoint)
+    }
+
+    suspend fun saveAlertProviderSettings(
+        update: AlertProviderUpdate,
+    ): AlertProviderSettings {
+        val connected = connectedState()
+        requireFeature(connected, "alert_settings")
+        return apiClient.saveAlertProviderSettings(
+            endpoint = connected.endpoint,
+            update = update,
+        )
+    }
+
+    suspend fun testAlertProviderSettings(
+        update: AlertProviderUpdate,
+    ): AlertProviderTestResult {
+        val connected = connectedState()
+        requireFeature(connected, "alert_settings")
+        return apiClient.testAlertProviderSettings(
+            endpoint = connected.endpoint,
+            update = update,
+        )
+    }
+
+    suspend fun saveAlertAudioSettings(
+        update: AlertAudioUpdate,
+    ): AlertAudioSettings {
+        val connected = connectedState()
+        requireFeature(connected, "audio_settings")
+        return apiClient.saveAlertAudioSettings(
+            endpoint = connected.endpoint,
+            update = update,
+        )
+    }
+
+    suspend fun uploadAlertMedia(
+        kind: String,
+        bytes: ByteArray,
+        contentType: String,
+    ): AlertMediaFile {
+        val connected = connectedState()
+        requireFeature(connected, "alert_media")
+        return apiClient.uploadAlertMedia(
+            endpoint = connected.endpoint,
+            kind = kind,
+            bytes = bytes,
+            contentType = contentType,
+        )
+    }
+
+    suspend fun resetAlertMedia(kind: String): AlertMediaFile {
+        val connected = connectedState()
+        requireFeature(connected, "alert_media")
+        return apiClient.resetAlertMedia(
+            endpoint = connected.endpoint,
+            kind = kind,
+        )
     }
 
     private fun connectedState(): PlayerSessionState.Connected =
