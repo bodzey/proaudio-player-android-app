@@ -46,6 +46,7 @@ import com.bodzey.proaudioplayer.ui.components.SectionLabel
 import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
 import java.util.Locale
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 
 @Composable
 fun AudioMetersCard(
@@ -386,9 +387,8 @@ private fun DrawScope.drawMeter(
         style = Stroke(width = 1.dp.toPx()),
     )
 
-    val laneXs = floatArrayOf(leftX, rightX)
     for (channel in 0..1) {
-        val x = laneXs[channel]
+        val x = if (channel == 0) leftX else rightX
         val clipped = dynamics.clipVisible(channel, frameTimeNanos)
 
         drawRect(

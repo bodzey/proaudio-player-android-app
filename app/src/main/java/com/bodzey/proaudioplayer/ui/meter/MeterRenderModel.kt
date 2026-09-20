@@ -96,17 +96,17 @@ internal class MeterDynamics {
             releaseSeconds = RMS_RELEASE_SECONDS,
         )
 
-        val targetPeaks = doubleArrayOf(targetPeakLeft, targetPeakRight)
-        val clips = booleanArrayOf(level.clipLeft, level.clipRight)
-
         for (channel in 0..1) {
+            val targetPeak = if (channel == 0) targetPeakLeft else targetPeakRight
+            val clipped = if (channel == 0) level.clipLeft else level.clipRight
+
             displayedPeakDb[channel] = smoothPeak(
                 current = displayedPeakDb[channel],
-                target = targetPeaks[channel],
+                target = targetPeak,
                 dtSeconds = dtSeconds,
             )
 
-            if (clips[channel]) {
+            if (clipped) {
                 clipUntilNanos[channel] = frameTimeNanos + CLIP_HOLD_NANOS
             }
 
