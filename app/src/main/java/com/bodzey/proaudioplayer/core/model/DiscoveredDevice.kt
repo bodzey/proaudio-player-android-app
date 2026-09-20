@@ -9,6 +9,7 @@ data class DiscoveredDevice(
     val apiMajorVersion: Int,
     val endpoints: Set<DeviceEndpoint>,
     val observedAt: Instant,
+    val persistable: Boolean = true,
 ) {
     init {
         require(displayName.isNotBlank()) { "Display name must not be blank" }
