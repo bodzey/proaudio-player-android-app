@@ -53,6 +53,12 @@ fun PrimaryNavigation(
             modifier = Modifier.weight(1f),
         )
         NavigationItem(
+            label = stringResource(R.string.nav_media),
+            selected = selected == AppSection.Media,
+            onClick = { onSelected(AppSection.Media) },
+            modifier = Modifier.weight(1f),
+        )
+        NavigationItem(
             label = stringResource(R.string.nav_radio),
             selected = selected == AppSection.Radio,
             onClick = { onSelected(AppSection.Radio) },
