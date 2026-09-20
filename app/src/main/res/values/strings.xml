@@ -30,6 +30,13 @@
     <string name="now_playing">Зараз відтворюється</string>
     <string name="no_active_stream">Немає активного потоку</string>
     <string name="master_output">MASTER OUTPUT</string>
+    <string name="master_mute">MUTE MASTER</string>
+    <string name="master_unmute">UNMUTE MASTER</string>
+    <string name="nav_player">Плеєр</string>
+    <string name="nav_radio">Радіо</string>
+    <string name="nav_alerts">Оповіщення</string>
+    <string name="radio_port_pending">Нативний розділ радіо використовуватиме той самий API та буде перенесений наступним етапом.</string>
+    <string name="alerts_port_pending">Нативний розділ оповіщень використовуватиме той самий API та буде перенесений наступним етапом.</string>
     <string name="player_previous">Попередній</string>
     <string name="player_stop">Стоп</string>
     <string name="player_play">Відтворити</string>
