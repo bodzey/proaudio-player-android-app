@@ -6,5 +6,5 @@ import com.bodzey.proaudioplayer.core.discovery.demo.DemoDiscoveryController
 
 fun createDevelopmentDiscoverySource(
     controller: DemoDiscoveryController,
-): DeviceDiscoverySource =
+): DeviceDiscoverySource? =
     DemoDeviceDiscoverySource(controller)
