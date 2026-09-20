@@ -64,6 +64,7 @@ import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.api.RadioStation
+import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import com.bodzey.proaudioplayer.ui.meter.MeterRenderSource
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.AppSection
@@ -97,6 +98,8 @@ import kotlinx.coroutines.flow.StateFlow
 fun PlayerScreen(
     state: PlayerSessionState,
     section: AppSection,
+    audioRelayActive: Boolean,
+    audioRelayError: String?,
     pendingAction: PlayerAction?,
     masterMuteBusy: Boolean,
     masterVolumeOverride: Double?,
@@ -138,6 +141,8 @@ fun PlayerScreen(
     onAlertMediaSelected: (String, String) -> Unit,
     onAlertMediaReset: (String) -> Unit,
     onAlertMediaResetAll: () -> Unit,
+    onAudioRelayStart: (DeviceEndpoint) -> Unit,
+    onAudioRelayStop: () -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -220,6 +225,8 @@ fun PlayerScreen(
                     item(key = "player-section") {
                         ConnectedState(
                             state = state,
+                            audioRelayActive = audioRelayActive,
+                            audioRelayError = audioRelayError,
                             pendingAction = pendingAction,
                             masterMuteBusy = masterMuteBusy,
                             masterVolumeOverride = masterVolumeOverride,
@@ -235,6 +242,8 @@ fun PlayerScreen(
                             onMixerRefresh = onMixerRefresh,
                             onMixerLevelChange = onMixerLevelChange,
                             onMixerMuteChange = onMixerMuteChange,
+                            onAudioRelayStart = onAudioRelayStart,
+                            onAudioRelayStop = onAudioRelayStop,
                         )
                     }
                 }
@@ -348,6 +357,8 @@ private fun ConnectingState(
 @Composable
 private fun ConnectedState(
     state: PlayerSessionState.Connected,
+    audioRelayActive: Boolean,
+    audioRelayError: String?,
     pendingAction: PlayerAction?,
     masterMuteBusy: Boolean,
     masterVolumeOverride: Double?,
@@ -363,6 +374,8 @@ private fun ConnectedState(
     onMixerRefresh: () -> Unit,
     onMixerLevelChange: (MixerTarget, Double) -> Unit,
     onMixerMuteChange: (MixerTarget, Boolean) -> Unit,
+    onAudioRelayStart: (DeviceEndpoint) -> Unit,
+    onAudioRelayStop: () -> Unit,
 ) {
     val colors = LocalProAudioColors.current
     val player = state.status.player
@@ -414,6 +427,16 @@ private fun ConnectedState(
                         )
                     }
                 }
+            }
+
+            if ("network_audio_ingest" in state.capabilities.features) {
+                NetworkAudioRelayCard(
+                    active = audioRelayActive,
+                    error = audioRelayError,
+                    endpoint = state.endpoint,
+                    onStart = onAudioRelayStart,
+                    onStop = onAudioRelayStop,
+                )
             }
 
             AudioMetersCard(
@@ -875,6 +898,79 @@ private fun TransportGlyph(
                 path.close()
                 drawPath(path, color)
             }
+        }
+    }
+}
+
+@Composable
+private fun NetworkAudioRelayCard(
+    active: Boolean,
+    error: String?,
+    endpoint: DeviceEndpoint,
+    onStart: (DeviceEndpoint) -> Unit,
+    onStop: () -> Unit,
+) {
+    val colors = LocalProAudioColors.current
+
+    ProAudioPanel(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            SectionLabel(text = stringResource(R.string.network_audio_eyebrow))
+            Text(
+                text = stringResource(R.string.network_audio_title),
+                color = colors.text,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.network_audio_description),
+                color = colors.textMuted,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+            if (active) {
+                StatusBadge(
+                    text = stringResource(R.string.network_audio_active),
+                    state = StatusBadgeState.Online,
+                )
+            }
+
+            if (error != null) {
+                Text(
+                    text = error,
+                    color = colors.danger,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
+            OutlinedButton(
+                onClick = {
+                    if (active) {
+                        onStop()
+                    } else {
+                        onStart(endpoint)
+                    }
+                },
+            ) {
+                Text(
+                    text = stringResource(
+                        if (active) {
+                            R.string.network_audio_stop
+                        } else {
+                            R.string.network_audio_start
+                        },
+                    ),
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.network_audio_capture_note),
+                color = colors.textMuted,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }
