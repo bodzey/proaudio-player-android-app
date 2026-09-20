@@ -8,10 +8,13 @@ import com.bodzey.proaudioplayer.core.api.AlertMediaFile
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
 import com.bodzey.proaudioplayer.core.api.AudioLevelState
+import com.bodzey.proaudioplayer.core.api.MeterFrame
 import com.bodzey.proaudioplayer.core.api.MpdState
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PriorityState
 import com.bodzey.proaudioplayer.core.api.RadioStation
+import com.bodzey.proaudioplayer.core.api.StereoMeterLevel
+import com.bodzey.proaudioplayer.core.api.StereoMeterValues
 import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
 import kotlinx.serialization.json.Json
@@ -123,6 +126,18 @@ internal class ApiJsonParser(
     }
 
 
+
+    fun meterFrame(payload: String): MeterFrame {
+        val root = objectRoot(payload)
+        return MeterFrame(
+            sequence = root.requiredLong("sequence"),
+            sampleRate = root.requiredPositiveInt("sample_rate"),
+            intervalMillis = root.requiredLong("interval_ms"),
+            master = root.requiredMeterLevel("master"),
+            music = root.requiredMeterLevel("music"),
+            alert = root.requiredMeterLevel("alert"),
+        )
+    }
 
     fun alertProviderSettings(payload: String): AlertProviderSettings {
         val root = objectRoot(payload)
@@ -239,6 +254,46 @@ internal class ApiJsonParser(
             .orEmpty()
     }
 
+
+    private fun JsonObject.requiredMeterLevel(key: String): StereoMeterLevel {
+        val meter = this[key]?.jsonObject
+            ?: throw ApiProtocolException("Missing meter object '$key'")
+        val peak = meter.requiredStereoDoubles("peak")
+        val rms = meter.requiredStereoDoubles("rms")
+        val clip = meter["clip"]?.jsonArray
+            ?: throw ApiProtocolException("Missing meter clip array '$key'")
+        if (clip.size != 2) {
+            throw ApiProtocolException("Meter clip array '$key' must contain two channels")
+        }
+        val clipLeft = clip[0].jsonPrimitive.booleanOrNull
+            ?: throw ApiProtocolException("Invalid left clip flag '$key'")
+        val clipRight = clip[1].jsonPrimitive.booleanOrNull
+            ?: throw ApiProtocolException("Invalid right clip flag '$key'")
+
+        return StereoMeterLevel(
+            peakDb = peak,
+            rmsDb = rms,
+            clipLeft = clipLeft,
+            clipRight = clipRight,
+            available = meter.requiredBoolean("available"),
+        )
+    }
+
+    private fun JsonObject.requiredStereoDoubles(key: String): StereoMeterValues {
+        val values = this[key]?.jsonArray
+            ?: throw ApiProtocolException("Missing stereo array '$key'")
+        if (values.size != 2) {
+            throw ApiProtocolException("Stereo array '$key' must contain two channels")
+        }
+        val left = values[0].jsonPrimitive.doubleOrNull
+            ?: throw ApiProtocolException("Invalid left channel '$key'")
+        val right = values[1].jsonPrimitive.doubleOrNull
+            ?: throw ApiProtocolException("Invalid right channel '$key'")
+        return StereoMeterValues(
+            left = left,
+            right = right,
+        )
+    }
 
     private fun alertMediaFile(item: JsonObject): AlertMediaFile =
         AlertMediaFile(
