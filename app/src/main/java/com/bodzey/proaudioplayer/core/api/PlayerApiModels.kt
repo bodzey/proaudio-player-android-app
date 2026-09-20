@@ -39,8 +39,15 @@ data class AudioLevelState(
 )
 
 data class PriorityState(
+    val mode: String,
     val active: Boolean,
     val blocking: Boolean,
+    val duckOnlyDuringAnnouncement: Boolean,
+    val minuteSilenceActive: Boolean,
+    val matchedUids: List<Long>,
+    val lastSuccessAt: String?,
+    val lastChangeAt: String?,
+    val lastError: String?,
 )
 
 data class MpdState(
