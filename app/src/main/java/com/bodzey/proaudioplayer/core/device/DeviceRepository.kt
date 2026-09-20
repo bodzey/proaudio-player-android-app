@@ -14,7 +14,10 @@ class DeviceRepository(
         .devices()
         .stateIn(
             scope = scope,
-            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+            started = SharingStarted.WhileSubscribed(
+                stopTimeoutMillis = 5_000,
+                replayExpirationMillis = 0,
+            ),
             initialValue = emptyList(),
         )
 
