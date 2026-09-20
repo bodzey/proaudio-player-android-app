@@ -32,9 +32,14 @@ data class PlayerState(
     val controls: PlayerControls,
 )
 
-data class PlayerStatus(
-    val name: String,
+data class AudioLevelState(
     val volumePercent: Double,
     val muted: Boolean,
+)
+
+data class PlayerStatus(
+    val name: String,
+    val master: AudioLevelState,
+    val music: AudioLevelState,
     val player: PlayerState,
 )
