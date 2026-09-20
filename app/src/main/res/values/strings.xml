@@ -8,6 +8,19 @@
     <string name="device_api_version">API v%1$d</string>
     <string name="demo_devices">Demo devices</string>
 
+    <string name="back">Back</string>
+    <string name="player_connecting">Connecting to player…</string>
+    <string name="player_connected">Connected</string>
+    <string name="player_offline">Player offline</string>
+    <string name="player_offline_support">The selected player is no longer being advertised on the local network.</string>
+    <string name="player_source">Source</string>
+    <string name="player_state">State</string>
+    <string name="player_volume">Volume</string>
+    <string name="player_endpoint">Endpoint</string>
+    <string name="player_api">API</string>
+    <string name="player_events">Events</string>
+    <string name="player_muted">Muted</string>
+
     <plurals name="device_endpoint_count">
         <item quantity="one">%1$d endpoint</item>
         <item quantity="other">%1$d endpoints</item>
