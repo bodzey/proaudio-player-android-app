@@ -38,4 +38,5 @@ interface PlayerApiClient {
         kind: String,
     ): AlertMediaFile
     fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus>
+    fun meterEvents(endpoint: DeviceEndpoint): Flow<MeterFrame>
 }
