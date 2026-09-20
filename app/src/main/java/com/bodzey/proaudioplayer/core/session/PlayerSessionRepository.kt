@@ -1,6 +1,9 @@
 package com.bodzey.proaudioplayer.core.session
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
+import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
+import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
+import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.RadioStation
@@ -126,6 +129,24 @@ class PlayerSessionRepository(
 
     suspend fun stopPlayback() {
         performAction(PlayerAction.Stop)
+    }
+
+    suspend fun alertProviderSettings(): AlertProviderSettings {
+        val connected = connectedState()
+        requireFeature(connected, "alert_settings")
+        return apiClient.alertProviderSettings(connected.endpoint)
+    }
+
+    suspend fun alertAudioSettings(): AlertAudioSettings {
+        val connected = connectedState()
+        requireFeature(connected, "audio_settings")
+        return apiClient.alertAudioSettings(connected.endpoint)
+    }
+
+    suspend fun alertMedia(): AlertMediaCatalog {
+        val connected = connectedState()
+        requireFeature(connected, "alert_media")
+        return apiClient.alertMedia(connected.endpoint)
     }
 
     private fun connectedState(): PlayerSessionState.Connected =
