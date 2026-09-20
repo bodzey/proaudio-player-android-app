@@ -11,6 +11,7 @@ import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
 import com.bodzey.proaudioplayer.core.api.AlertMediaFile
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
+import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import com.bodzey.proaudioplayer.data.media.AndroidAlertMediaImporter
 import kotlinx.coroutines.CancellationException
@@ -64,7 +65,7 @@ class AlertsViewModel(
                 Triple(provider.await(), audio.await(), media.await())
             }
 
-            if (sessionRepository.selectedDeviceId.value != deviceId) {
+            if (!isCurrentDevice(deviceId)) {
                 return@launch
             }
 
@@ -120,13 +121,23 @@ class AlertsViewModel(
     }
 
     fun saveProvider() {
+        if (_uiState.value.busyAction != null) return
+        val deviceId = currentDeviceId() ?: return
         val form = _uiState.value.providerForm ?: return
-        runProviderAction(
+        val update = parseProviderUpdate(form) ?: return
+
+        _uiState.value = _uiState.value.copy(
             busyAction = AlertsBusyAction.ProviderSave,
-            action = {
+            providerMessage = null,
+        )
+
+        viewModelScope.launch {
+            try {
                 val saved = sessionRepository.saveAlertProviderSettings(
-                    form.toUpdate(),
+                    expectedDeviceId = deviceId,
+                    update = update,
                 )
+                if (!isCurrentDevice(deviceId)) return@launch
                 _uiState.value = _uiState.value.copy(
                     provider = saved,
                     providerForm = saved.toForm(),
@@ -136,18 +147,36 @@ class AlertsViewModel(
                         isError = false,
                     ),
                 )
-            },
-        )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (isCurrentDevice(deviceId)) {
+                    setProviderError(error, "Не вдалося зберегти налаштування API")
+                }
+            } finally {
+                clearBusyIfCurrent(deviceId)
+            }
+        }
     }
 
     fun testProvider() {
+        if (_uiState.value.busyAction != null) return
+        val deviceId = currentDeviceId() ?: return
         val form = _uiState.value.providerForm ?: return
-        runProviderAction(
+        val update = parseProviderUpdate(form) ?: return
+
+        _uiState.value = _uiState.value.copy(
             busyAction = AlertsBusyAction.ProviderTest,
-            action = {
+            providerMessage = null,
+        )
+
+        viewModelScope.launch {
+            try {
                 val result = sessionRepository.testAlertProviderSettings(
-                    form.toUpdate(),
+                    expectedDeviceId = deviceId,
+                    update = update,
                 )
+                if (!isCurrentDevice(deviceId)) return@launch
                 _uiState.value = _uiState.value.copy(
                     providerMessage = AlertsMessage(
                         text = if (result.active) {
@@ -162,12 +191,21 @@ class AlertsViewModel(
                         isError = false,
                     ),
                 )
-            },
-        )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (isCurrentDevice(deviceId)) {
+                    setProviderError(error, "Помилка перевірки API тривог")
+                }
+            } finally {
+                clearBusyIfCurrent(deviceId)
+            }
+        }
     }
 
     fun saveAudio() {
         if (_uiState.value.busyAction != null) return
+        val deviceId = currentDeviceId() ?: return
         val form = _uiState.value.audioForm ?: return
         val update = try {
             form.toUpdate()
@@ -185,9 +223,14 @@ class AlertsViewModel(
             busyAction = AlertsBusyAction.AudioSave,
             audioMessage = null,
         )
+
         viewModelScope.launch {
             try {
-                val saved = sessionRepository.saveAlertAudioSettings(update)
+                val saved = sessionRepository.saveAlertAudioSettings(
+                    expectedDeviceId = deviceId,
+                    update = update,
+                )
+                if (!isCurrentDevice(deviceId)) return@launch
                 _uiState.value = _uiState.value.copy(
                     audio = saved,
                     audioForm = saved.toForm(),
@@ -200,16 +243,17 @@ class AlertsViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    audioMessage = AlertsMessage(
-                        text = error.message ?: "Не вдалося зберегти аудіопараметри",
-                        isError = true,
-                    ),
-                )
+                if (isCurrentDevice(deviceId)) {
+                    _uiState.value = _uiState.value.copy(
+                        audioMessage = AlertsMessage(
+                            text = error.message
+                                ?: "Не вдалося зберегти аудіопараметри",
+                            isError = true,
+                        ),
+                    )
+                }
             } finally {
-                _uiState.value = _uiState.value.copy(
-                    busyAction = null,
-                )
+                clearBusyIfCurrent(deviceId)
             }
         }
     }
@@ -219,7 +263,9 @@ class AlertsViewModel(
         uriText: String,
     ) {
         if (_uiState.value.busyAction != null) return
+        val deviceId = currentDeviceId() ?: return
         val media = _uiState.value.media ?: return
+
         _uiState.value = _uiState.value.copy(
             busyAction = AlertsBusyAction.MediaUpload(kind),
             mediaMessage = null,
@@ -231,11 +277,16 @@ class AlertsViewModel(
                     uriText = uriText,
                     maxBytes = media.maxSizeBytes,
                 )
+                if (!isCurrentDevice(deviceId)) return@launch
+
                 val saved = sessionRepository.uploadAlertMedia(
+                    expectedDeviceId = deviceId,
                     kind = kind,
                     bytes = imported.bytes,
                     contentType = imported.contentType,
                 )
+                if (!isCurrentDevice(deviceId)) return@launch
+
                 _uiState.value = _uiState.value.copy(
                     media = _uiState.value.media?.replace(saved),
                     mediaMessage = AlertsMessage(
@@ -246,29 +297,37 @@ class AlertsViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    mediaMessage = AlertsMessage(
-                        text = error.message ?: "Не вдалося завантажити MP3",
-                        isError = true,
-                    ),
-                )
+                if (isCurrentDevice(deviceId)) {
+                    _uiState.value = _uiState.value.copy(
+                        mediaMessage = AlertsMessage(
+                            text = error.message ?: "Не вдалося завантажити MP3",
+                            isError = true,
+                        ),
+                    )
+                }
             } finally {
-                _uiState.value = _uiState.value.copy(
-                    busyAction = null,
-                )
+                clearBusyIfCurrent(deviceId)
             }
         }
     }
 
     fun resetMedia(kind: String) {
         if (_uiState.value.busyAction != null) return
+        val deviceId = currentDeviceId() ?: return
+
         _uiState.value = _uiState.value.copy(
             busyAction = AlertsBusyAction.MediaReset(kind),
             mediaMessage = null,
         )
+
         viewModelScope.launch {
             try {
-                val saved = sessionRepository.resetAlertMedia(kind)
+                val saved = sessionRepository.resetAlertMedia(
+                    expectedDeviceId = deviceId,
+                    kind = kind,
+                )
+                if (!isCurrentDevice(deviceId)) return@launch
+
                 _uiState.value = _uiState.value.copy(
                     media = _uiState.value.media?.replace(saved),
                     mediaMessage = AlertsMessage(
@@ -279,22 +338,23 @@ class AlertsViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    mediaMessage = AlertsMessage(
-                        text = error.message ?: "Не вдалося відновити файл",
-                        isError = true,
-                    ),
-                )
+                if (isCurrentDevice(deviceId)) {
+                    _uiState.value = _uiState.value.copy(
+                        mediaMessage = AlertsMessage(
+                            text = error.message ?: "Не вдалося відновити файл",
+                            isError = true,
+                        ),
+                    )
+                }
             } finally {
-                _uiState.value = _uiState.value.copy(
-                    busyAction = null,
-                )
+                clearBusyIfCurrent(deviceId)
             }
         }
     }
 
     fun resetAllMedia() {
         if (_uiState.value.busyAction != null) return
+        val deviceId = currentDeviceId() ?: return
         val kinds = _uiState.value.media
             ?.items
             ?.map { it.kind }
@@ -305,12 +365,20 @@ class AlertsViewModel(
             busyAction = AlertsBusyAction.MediaResetAll,
             mediaMessage = null,
         )
+
         viewModelScope.launch {
             try {
                 kinds.forEach { kind ->
-                    sessionRepository.resetAlertMedia(kind)
+                    sessionRepository.resetAlertMedia(
+                        expectedDeviceId = deviceId,
+                        kind = kind,
+                    )
                 }
+                if (!isCurrentDevice(deviceId)) return@launch
+
                 val refreshed = sessionRepository.alertMedia()
+                if (!isCurrentDevice(deviceId)) return@launch
+
                 _uiState.value = _uiState.value.copy(
                     media = refreshed,
                     mediaMessage = AlertsMessage(
@@ -321,28 +389,28 @@ class AlertsViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                val refreshed = capture { sessionRepository.alertMedia() }.getOrNull()
-                _uiState.value = _uiState.value.copy(
-                    media = refreshed ?: _uiState.value.media,
-                    mediaMessage = AlertsMessage(
-                        text = error.message ?: "Не вдалося відновити всі файли",
-                        isError = true,
-                    ),
-                )
+                if (isCurrentDevice(deviceId)) {
+                    val refreshed = capture {
+                        sessionRepository.alertMedia()
+                    }.getOrNull()
+                    _uiState.value = _uiState.value.copy(
+                        media = refreshed ?: _uiState.value.media,
+                        mediaMessage = AlertsMessage(
+                            text = error.message
+                                ?: "Не вдалося відновити всі файли",
+                            isError = true,
+                        ),
+                    )
+                }
             } finally {
-                _uiState.value = _uiState.value.copy(
-                    busyAction = null,
-                )
+                clearBusyIfCurrent(deviceId)
             }
         }
     }
 
-    private fun runProviderAction(
-        busyAction: AlertsBusyAction,
-        action: suspend () -> Unit,
-    ) {
-        if (_uiState.value.busyAction != null) return
-        val form = _uiState.value.providerForm ?: return
+    private fun parseProviderUpdate(
+        form: AlertProviderForm,
+    ): AlertProviderUpdate? =
         try {
             form.toUpdate()
         } catch (error: IllegalArgumentException) {
@@ -352,30 +420,37 @@ class AlertsViewModel(
                     isError = true,
                 ),
             )
-            return
+            null
         }
 
+    private fun setProviderError(
+        error: Exception,
+        fallback: String,
+    ) {
         _uiState.value = _uiState.value.copy(
-            busyAction = busyAction,
-            providerMessage = null,
+            providerMessage = AlertsMessage(
+                text = error.message ?: fallback,
+                isError = true,
+            ),
         )
-        viewModelScope.launch {
-            try {
-                action()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    providerMessage = AlertsMessage(
-                        text = error.message ?: "Помилка API тривог",
-                        isError = true,
-                    ),
-                )
-            } finally {
-                _uiState.value = _uiState.value.copy(
-                    busyAction = null,
-                )
-            }
+    }
+
+    private fun currentDeviceId(): DeviceId? {
+        val stateDeviceId = _uiState.value.deviceId ?: return null
+        return stateDeviceId.takeIf {
+            sessionRepository.selectedDeviceId.value == stateDeviceId
+        }
+    }
+
+    private fun isCurrentDevice(deviceId: DeviceId): Boolean =
+        _uiState.value.deviceId == deviceId &&
+            sessionRepository.selectedDeviceId.value == deviceId
+
+    private fun clearBusyIfCurrent(deviceId: DeviceId) {
+        if (isCurrentDevice(deviceId)) {
+            _uiState.value = _uiState.value.copy(
+                busyAction = null,
+            )
         }
     }
 
