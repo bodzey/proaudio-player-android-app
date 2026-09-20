@@ -42,6 +42,7 @@ class ApiJsonParserTest {
             """
             {
               "name":"ProAudio Player",
+              "audio_topology_revision":7,
               "volume":89.1,
               "muted":false,
               "priority":{
@@ -91,6 +92,7 @@ class ApiJsonParserTest {
         )
 
         assertEquals("ProAudio Player", status.name)
+        assertEquals(7L, status.audioTopologyRevision)
         assertEquals(42.5, status.master.volumePercent, 0.001)
         assertTrue(status.master.muted)
         assertEquals(-17.25, status.master.db ?: Double.NaN, 0.001)
