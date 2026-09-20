@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ProAudio Player</string>
+    <string name="devices_title">Players</string>
+    <string name="devices_searching">Searching for ProAudio Player devices…</string>
+    <string name="devices_searching_support">Keep this screen open while players are discovered on the local network.</string>
+    <string name="device_online">Online</string>
+    <string name="device_api_version">API v%1$d</string>
+    <string name="device_endpoint_count">%1$d endpoint(s)</string>
+    <string name="demo_devices">Demo devices</string>
 </resources>
