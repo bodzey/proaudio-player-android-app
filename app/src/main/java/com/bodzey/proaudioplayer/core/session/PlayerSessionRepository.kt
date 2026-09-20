@@ -72,7 +72,10 @@ class PlayerSessionRepository(
         }
         .stateIn(
             scope = scope,
-            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0),
+            started = SharingStarted.WhileSubscribed(
+                stopTimeoutMillis = 0,
+                replayExpirationMillis = 0,
+            ),
             initialValue = PlayerSessionState.NoSelection,
         )
 
