@@ -53,6 +53,7 @@ internal class ApiJsonParser(
         val music = AudioLevelState(
             volumePercent = root.requiredDouble("volume"),
             muted = root.requiredBoolean("muted"),
+            db = null,
         )
         val masterObject = root["audio_levels"]
             ?.jsonObject
@@ -63,6 +64,7 @@ internal class ApiJsonParser(
                 ?: music.volumePercent,
             muted = masterObject?.optionalBoolean("muted")
                 ?: music.muted,
+            db = masterObject?.optionalDouble("db"),
         )
 
         return PlayerStatus(
