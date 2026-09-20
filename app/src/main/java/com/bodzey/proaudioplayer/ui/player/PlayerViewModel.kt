@@ -40,6 +40,8 @@ class PlayerViewModel(
     private val _masterVolumeOverride = MutableStateFlow<Double?>(null)
     val masterVolumeOverride: StateFlow<Double?> = _masterVolumeOverride.asStateFlow()
 
+    private val _lastSentMasterVolume = MutableStateFlow<Double?>(null)
+
     private val masterVolumeRequests =
         Channel<MasterVolumeRequest>(capacity = Channel.CONFLATED)
 
@@ -52,6 +54,9 @@ class PlayerViewModel(
 
                 try {
                     sessionRepository.setMasterVolume(request.percent)
+                    if (selectedDeviceId.value == request.deviceId) {
+                        _lastSentMasterVolume.value = request.percent
+                    }
                 } catch (error: Exception) {
                     if (selectedDeviceId.value == request.deviceId &&
                         _masterVolumeOverride.value?.let { value ->
@@ -71,13 +76,16 @@ class PlayerViewModel(
         viewModelScope.launch {
             state.collect { sessionState ->
                 val target = _masterVolumeOverride.value ?: return@collect
+                val sentTarget = _lastSentMasterVolume.value ?: return@collect
                 val connected = sessionState as? PlayerSessionState.Connected
                     ?: return@collect
 
-                if (abs(connected.status.master.volumePercent - target) <=
+                if (abs(sentTarget - target) <= MASTER_VOLUME_TARGET_TOLERANCE_PERCENT &&
+                    abs(connected.status.master.volumePercent - target) <=
                     MASTER_VOLUME_ACK_TOLERANCE_PERCENT
                 ) {
                     _masterVolumeOverride.value = null
+                    _lastSentMasterVolume.value = null
                 }
             }
         }
@@ -110,6 +118,7 @@ class PlayerViewModel(
 
         _actionError.value = null
         _masterVolumeOverride.value = target
+        _lastSentMasterVolume.value = null
         masterVolumeRequests.trySend(
             MasterVolumeRequest(
                 deviceId = deviceId,
@@ -138,6 +147,7 @@ class PlayerViewModel(
     fun close() {
         _actionError.value = null
         _masterVolumeOverride.value = null
+        _lastSentMasterVolume.value = null
         _section.value = AppSection.Player
         sessionRepository.clearSelection()
     }
@@ -150,6 +160,7 @@ class PlayerViewModel(
     companion object {
         private const val MASTER_VOLUME_REQUEST_INTERVAL_MILLIS = 75L
         private const val MASTER_VOLUME_ACK_TOLERANCE_PERCENT = 0.75
+        private const val MASTER_VOLUME_TARGET_TOLERANCE_PERCENT = 0.01
         fun factory(
             sessionRepository: PlayerSessionRepository,
         ): ViewModelProvider.Factory =
