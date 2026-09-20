@@ -17,8 +17,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -32,6 +34,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -42,6 +46,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.bodzey.proaudioplayer.R
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.components.ProAudioPanel
@@ -73,14 +78,14 @@ fun LazyListScope.radioSection(
     if (blocked) {
         item(key = "radio-blocked") {
             RadioNotice(
-                text = "Запуск іншого радіопотоку заблоковано активним пріоритетним оповіщенням.",
+                text = stringResource(R.string.radio_blocked),
                 error = true,
             )
         }
     } else if (!streamsSupported) {
         item(key = "radio-unsupported") {
             RadioNotice(
-                text = "Ця версія плеєра не підтримує мережеві аудіопотоки.",
+                text = stringResource(R.string.radio_unsupported),
                 error = true,
             )
         }
@@ -107,10 +112,10 @@ fun LazyListScope.radioSection(
             Column(
                 modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
             ) {
-                SectionLabel(text = "КАТАЛОГ")
+                SectionLabel(text = stringResource(R.string.radio_catalog_eyebrow))
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Українські радіостанції",
+                    text = stringResource(R.string.radio_ukrainian_stations),
                     color = LocalProAudioColors.current.text,
                     style = MaterialTheme.typography.titleLarge,
                 )
@@ -175,16 +180,16 @@ private fun RadioHeader(
                 Column(
                     modifier = Modifier.weight(1f),
                 ) {
-                    SectionLabel(text = "ІНТЕРНЕТ-РАДІО")
+                    SectionLabel(text = stringResource(R.string.radio_eyebrow))
                     Spacer(modifier = Modifier.height(5.dp))
                     Text(
-                        text = "Популярні радіостанції",
+                        text = stringResource(R.string.radio_title),
                         color = colors.text,
                         style = MaterialTheme.typography.headlineMedium,
                     )
                     Spacer(modifier = Modifier.height(7.dp))
                     Text(
-                        text = "Прямі потоки запускаються через локальний MPD-плеєр. Метадані ефіру автоматично з’являються у блоці «Зараз відтворюється».",
+                        text = stringResource(R.string.radio_description),
                         color = colors.textMuted,
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -200,7 +205,7 @@ private fun RadioHeader(
                         ),
                     ) {
                         Text(
-                            text = "ПОТІК АКТИВНИЙ",
+                            text = stringResource(R.string.radio_stream_active),
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
                             color = colors.success,
                             style = MaterialTheme.typography.labelMedium,
@@ -216,27 +221,27 @@ private fun RadioHeader(
             ) {
                 Text(
                     text = if (stationCount > 0) {
-                        stationCount.toString() + " станцій"
+                        pluralStringResource(
+                            R.plurals.radio_station_count,
+                            stationCount,
+                            stationCount,
+                        )
                     } else {
-                        "Каталог"
+                        stringResource(R.string.radio_catalog)
                     },
                     color = colors.textMuted,
                     style = MaterialTheme.typography.labelLarge,
                     fontFamily = FontFamily.Monospace,
                 )
 
-                Surface(
+                OutlinedButton(
                     onClick = onRefresh,
                     enabled = !loading,
-                    shape = RoundedCornerShape(9.dp),
-                    color = colors.surfaceRaised,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
                 ) {
                     Text(
-                        text = if (loading) "Оновлення…" else "Оновити",
-                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
-                        color = colors.textSoft,
-                        style = MaterialTheme.typography.labelLarge,
+                        text = stringResource(
+                            if (loading) R.string.radio_updating else R.string.radio_update,
+                        ),
                     )
                 }
             }
@@ -303,7 +308,7 @@ private fun RadioStationCard(
                     )
                     if (active) {
                         Text(
-                            text = "В ЕФІРІ",
+                            text = stringResource(R.string.radio_on_air),
                             color = colors.success,
                             style = MaterialTheme.typography.labelMedium,
                         )
@@ -333,9 +338,18 @@ private fun RadioStationCard(
                     .semantics {
                         role = Role.Button
                         contentDescription = when {
-                            pending -> "Підключення до " + station.name
-                            active -> "Зупинити " + station.name
-                            else -> "Слухати " + station.name
+                            pending -> stringResource(
+                                R.string.radio_connecting_station,
+                                station.name,
+                            )
+                            active -> stringResource(
+                                R.string.radio_stop_station,
+                                station.name,
+                            )
+                            else -> stringResource(
+                                R.string.radio_listen_station,
+                                station.name,
+                            )
                         }
                     },
                 shape = RoundedCornerShape(13.dp),
@@ -412,9 +426,9 @@ private fun CustomStreamPanel(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SectionLabel(text = "ВЛАСНИЙ ПОТІК")
+            SectionLabel(text = stringResource(R.string.radio_custom_eyebrow))
             Text(
-                text = "Власна адреса потоку",
+                text = stringResource(R.string.radio_custom_title),
                 color = colors.text,
                 style = MaterialTheme.typography.titleLarge,
             )
@@ -426,7 +440,7 @@ private fun CustomStreamPanel(
                 singleLine = true,
                 placeholder = {
                     Text(
-                        text = "https://example.org/radio.mp3",
+                        text = stringResource(R.string.radio_custom_placeholder),
                         color = colors.textMuted,
                     )
                 },
@@ -453,39 +467,30 @@ private fun CustomStreamPanel(
                 ),
             )
 
-            Surface(
+            Button(
                 onClick = {
                     focusManager.clearFocus()
                     onPlay()
                 },
                 enabled = enabled && url.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(11.dp),
-                color = colors.accent,
             ) {
-                Box(
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (pending) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        Text(
-                            text = "Відтворити",
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
+                if (pending) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.radio_play),
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 }
             }
 
             Text(
-                text = "Підтримуються прямі HTTP/HTTPS MP3, AAC, M3U/M3U8 та інші формати, які може відкрити MPD/FFmpeg у плеєрі.",
+                text = stringResource(R.string.radio_supported_formats),
                 color = colors.textMuted,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -512,18 +517,11 @@ private fun LoadError(
                 color = colors.danger,
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Surface(
+            OutlinedButton(
                 onClick = onRefresh,
                 enabled = !refreshing,
-                shape = RoundedCornerShape(8.dp),
-                color = colors.surfaceRaised,
             ) {
-                Text(
-                    text = "Повторити",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                    color = colors.textSoft,
-                    style = MaterialTheme.typography.labelLarge,
-                )
+                Text(text = stringResource(R.string.radio_retry))
             }
         }
     }
@@ -544,7 +542,7 @@ private fun LoadingRadioCatalog() {
                 color = colors.accent,
             )
             Text(
-                text = "Завантаження каталогу…",
+                text = stringResource(R.string.radio_loading_catalog),
                 color = colors.textSoft,
                 style = MaterialTheme.typography.bodyMedium,
             )
