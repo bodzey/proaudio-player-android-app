@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import com.bodzey.proaudioplayer.R
 import com.bodzey.proaudioplayer.core.api.AudioLevelState
 import com.bodzey.proaudioplayer.core.api.AudioOutputDescriptor
+import com.bodzey.proaudioplayer.core.api.MixerTarget
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PlayerState
@@ -75,6 +76,8 @@ import com.bodzey.proaudioplayer.ui.components.StatusBadgeState
 import com.bodzey.proaudioplayer.ui.media.MediaUiState
 import com.bodzey.proaudioplayer.ui.media.mediaSection
 import com.bodzey.proaudioplayer.ui.meter.AudioMetersCard
+import com.bodzey.proaudioplayer.ui.mixer.LogicalMixerCard
+import com.bodzey.proaudioplayer.ui.mixer.MixerUiState
 import com.bodzey.proaudioplayer.ui.output.AudioOutputCard
 import com.bodzey.proaudioplayer.ui.output.OutputUiState
 import com.bodzey.proaudioplayer.ui.radio.RadioUiState
@@ -94,6 +97,7 @@ fun PlayerScreen(
     radioState: RadioUiState,
     alertsState: AlertsUiState,
     meterState: StateFlow<MeterState>,
+    mixerState: MixerUiState,
     outputState: OutputUiState,
     mediaState: MediaUiState,
     onSectionSelected: (AppSection) -> Unit,
@@ -102,6 +106,9 @@ fun PlayerScreen(
     onMasterMuteChange: (Boolean) -> Unit,
     onOutputRefresh: () -> Unit,
     onOutputSelect: (AudioOutputDescriptor) -> Unit,
+    onMixerRefresh: () -> Unit,
+    onMixerLevelChange: (MixerTarget, Double) -> Unit,
+    onMixerMuteChange: (MixerTarget, Boolean) -> Unit,
     onMediaRefresh: () -> Unit,
     onMediaRefreshLibrary: () -> Unit,
     onMediaLibraryQueryChange: (String) -> Unit,
@@ -210,12 +217,16 @@ fun PlayerScreen(
                             masterMuteBusy = masterMuteBusy,
                             masterVolumeOverride = masterVolumeOverride,
                             meterState = meterState,
+                            mixerState = mixerState,
                             outputState = outputState,
                             onAction = onAction,
                             onMasterVolumeChange = onMasterVolumeChange,
                             onMasterMuteChange = onMasterMuteChange,
                             onOutputRefresh = onOutputRefresh,
                             onOutputSelect = onOutputSelect,
+                            onMixerRefresh = onMixerRefresh,
+                            onMixerLevelChange = onMixerLevelChange,
+                            onMixerMuteChange = onMixerMuteChange,
                         )
                     }
                 }
@@ -339,12 +350,16 @@ private fun ConnectedState(
     masterMuteBusy: Boolean,
     masterVolumeOverride: Double?,
     meterState: StateFlow<MeterState>,
+    mixerState: MixerUiState,
     outputState: OutputUiState,
     onAction: (PlayerAction) -> Unit,
     onMasterVolumeChange: (Double) -> Unit,
     onMasterMuteChange: (Boolean) -> Unit,
     onOutputRefresh: () -> Unit,
     onOutputSelect: (AudioOutputDescriptor) -> Unit,
+    onMixerRefresh: () -> Unit,
+    onMixerLevelChange: (MixerTarget, Double) -> Unit,
+    onMixerMuteChange: (MixerTarget, Boolean) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
     val player = state.status.player
@@ -397,6 +412,16 @@ private fun ConnectedState(
             AudioMetersCard(
                 state = meterState,
             )
+
+            if ("audio_mixer" in state.capabilities.features) {
+                LogicalMixerCard(
+                    state = mixerState,
+                    blocked = state.status.priority.blocking,
+                    onRefresh = onMixerRefresh,
+                    onLevelChange = onMixerLevelChange,
+                    onMuteChange = onMixerMuteChange,
+                )
+            }
 
             MasterOutputControl(
                 master = state.status.master,
