@@ -37,6 +37,28 @@
     <string name="nav_alerts">Оповіщення</string>
     <string name="nav_alerts_active">Оповіщення, активна тривога</string>
     <string name="radio_port_pending">Нативний розділ радіо використовуватиме той самий API та буде перенесений наступним етапом.</string>
+    <string name="radio_eyebrow">ІНТЕРНЕТ-РАДІО</string>
+    <string name="radio_title">Популярні радіостанції</string>
+    <string name="radio_description">Прямі потоки запускаються через локальний MPD-плеєр. Метадані ефіру автоматично з’являються у блоці «Зараз відтворюється».</string>
+    <string name="radio_stream_active">ПОТІК АКТИВНИЙ</string>
+    <string name="radio_catalog">Каталог</string>
+    <string name="radio_update">Оновити</string>
+    <string name="radio_updating">Оновлення…</string>
+    <string name="radio_blocked">Запуск іншого радіопотоку заблоковано активним пріоритетним оповіщенням.</string>
+    <string name="radio_unsupported">Ця версія плеєра не підтримує мережеві аудіопотоки.</string>
+    <string name="radio_catalog_eyebrow">КАТАЛОГ</string>
+    <string name="radio_ukrainian_stations">Українські радіостанції</string>
+    <string name="radio_on_air">В ЕФІРІ</string>
+    <string name="radio_connecting_station">Підключення до %1$s</string>
+    <string name="radio_stop_station">Зупинити %1$s</string>
+    <string name="radio_listen_station">Слухати %1$s</string>
+    <string name="radio_custom_eyebrow">ВЛАСНИЙ ПОТІК</string>
+    <string name="radio_custom_title">Власна адреса потоку</string>
+    <string name="radio_custom_placeholder">https://example.org/radio.mp3</string>
+    <string name="radio_play">Відтворити</string>
+    <string name="radio_supported_formats">Підтримуються прямі HTTP/HTTPS MP3, AAC, M3U/M3U8 та інші формати, які може відкрити MPD/FFmpeg у плеєрі.</string>
+    <string name="radio_retry">Повторити</string>
+    <string name="radio_loading_catalog">Завантаження каталогу…</string>
     <string name="alerts_port_pending">Нативний розділ оповіщень використовуватиме той самий API та буде перенесений наступним етапом.</string>
     <string name="player_previous">Попередній</string>
     <string name="player_stop">Стоп</string>
@@ -128,6 +150,13 @@
     <string name="alerts_media_restoring">Відновлення…</string>
     <string name="alerts_media_restore_all">Відновити стандартні</string>
     <string name="alerts_media_size_updated">%1$s · %2$s</string>
+
+    <plurals name="radio_station_count">
+        <item quantity="one">%1$d станція</item>
+        <item quantity="few">%1$d станції</item>
+        <item quantity="many">%1$d станцій</item>
+        <item quantity="other">%1$d станції</item>
+    </plurals>
 
     <plurals name="device_endpoint_count">
         <item quantity="one">%1$d мережева адреса</item>
