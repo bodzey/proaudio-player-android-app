@@ -9,8 +9,8 @@ import android.os.Handler
 import android.os.Looper
 import com.bodzey.proaudioplayer.core.discovery.DeviceDiscoveryEvent
 import com.bodzey.proaudioplayer.core.discovery.DeviceDiscoverySource
+import com.bodzey.proaudioplayer.core.discovery.DiscoveryPresenceId
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
-import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.model.DiscoveredDevice
 import java.time.Instant
 import java.util.ArrayDeque
@@ -32,7 +32,6 @@ class AndroidNsdDiscoverySource(
 
     override fun events(): Flow<DeviceDiscoveryEvent> = callbackFlow {
         val serviceCallbacks = mutableMapOf<String, NsdManager.ServiceInfoCallback>()
-        val deviceIdsByService = mutableMapOf<String, DeviceId>()
         val legacyServices = mutableSetOf<String>()
         val legacyQueue = ArrayDeque<NsdServiceInfo>()
         var legacyResolutionActive = false
@@ -41,14 +40,20 @@ class AndroidNsdDiscoverySource(
 
         fun emitAvailable(serviceInfo: NsdServiceInfo) {
             val device = serviceInfo.toDiscoveredDevice(clock()) ?: return
-            deviceIdsByService[serviceInfo.serviceKey()] = device.id
-            trySend(DeviceDiscoveryEvent.Available(device))
+            trySend(
+                DeviceDiscoveryEvent.Available(
+                    presenceId = serviceInfo.presenceId(),
+                    device = device,
+                ),
+            )
         }
 
-        fun emitUnavailable(serviceKey: String) {
-            deviceIdsByService.remove(serviceKey)?.let { deviceId ->
-                trySend(DeviceDiscoveryEvent.Unavailable(deviceId))
-            }
+        fun emitUnavailable(serviceInfo: NsdServiceInfo) {
+            trySend(
+                DeviceDiscoveryEvent.Unavailable(
+                    presenceId = serviceInfo.presenceId(),
+                ),
+            )
         }
 
         lateinit var resolveNextLegacyService: () -> Unit
@@ -108,7 +113,11 @@ class AndroidNsdDiscoverySource(
                 }
 
                 override fun onServiceLost() {
-                    emitUnavailable(serviceKey)
+                    trySend(
+                        DeviceDiscoveryEvent.Unavailable(
+                            presenceId = DiscoveryPresenceId("nsd:$serviceKey"),
+                        ),
+                    )
                 }
 
                 override fun onServiceInfoCallbackRegistrationFailed(errorCode: Int) {
@@ -154,7 +163,7 @@ class AndroidNsdDiscoverySource(
 
                 val serviceKey = serviceInfo.serviceKey()
                 legacyServices.remove(serviceKey)
-                emitUnavailable(serviceKey)
+                emitUnavailable(serviceInfo)
             }
 
             override fun onDiscoveryStopped(serviceType: String) = Unit
@@ -261,8 +270,18 @@ class AndroidNsdDiscoverySource(
         )
     }
 
-    private fun NsdServiceInfo.serviceKey(): String =
-        "$serviceName|$serviceType"
+    private fun NsdServiceInfo.presenceId(): DiscoveryPresenceId =
+        DiscoveryPresenceId("nsd:${serviceKey()}")
+
+    private fun NsdServiceInfo.serviceKey(): String {
+        val networkKey = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            network?.networkHandle?.toString() ?: "any"
+        } else {
+            "legacy"
+        }
+
+        return "$serviceName|$serviceType|$networkKey"
+    }
 
     private fun WifiManager.MulticastLock.releaseSafely() {
         if (isHeld) {
