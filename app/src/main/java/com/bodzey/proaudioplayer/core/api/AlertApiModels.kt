@@ -11,6 +11,24 @@ data class AlertProviderSettings(
     val tokenConfigured: Boolean,
 )
 
+data class AlertProviderUpdate(
+    val endpoint: String,
+    val locationUid: Long,
+    val locationType: String,
+    val pollIntervalSeconds: Double,
+    val requestTimeoutSeconds: Double,
+    val rateLimitBackoffSeconds: Double,
+    val clearConfirmations: Int,
+    val token: String? = null,
+)
+
+data class AlertProviderTestResult(
+    val ok: Boolean,
+    val active: Boolean,
+    val state: String,
+    val locationUid: Long,
+)
+
 data class AlertAudioSettings(
     val airRaidAlertsEnabled: Boolean,
     val duckDb: Double,
@@ -29,6 +47,23 @@ data class AlertAudioSettings(
     val sampleRateMode: String,
     val sampleRate: Int,
     val allowedSampleRates: List<Int>,
+)
+
+data class AlertAudioUpdate(
+    val airRaidAlertsEnabled: Boolean,
+    val duckDb: Double,
+    val duckFadeSeconds: Double,
+    val restoreFadeSeconds: Double,
+    val alertVolumePercent: Double,
+    val defaultRestoreVolumePercent: Double,
+    val minuteSilenceVolumePercent: Double,
+    val minuteSilenceEnabled: Boolean,
+    val minuteSilenceStartTime: String,
+    val minuteSilenceTimezone: String,
+    val minuteSilenceCatchUpSeconds: Long,
+    val minuteSilenceMusicFadeSeconds: Double,
+    val alertRepeatIntervalMinutes: Long,
+    val duckOnlyDuringAnnouncement: Boolean,
 )
 
 data class AlertMediaFile(
