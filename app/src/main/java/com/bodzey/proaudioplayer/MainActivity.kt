@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bodzey.proaudioplayer.ui.ProAudioPlayerApp
 import com.bodzey.proaudioplayer.ui.devices.DevicesViewModel
+import com.bodzey.proaudioplayer.ui.player.PlayerViewModel
 import com.bodzey.proaudioplayer.ui.theme.ProAudioPlayerTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,14 +20,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             val devicesViewModel: DevicesViewModel = viewModel(
                 factory = DevicesViewModel.factory(
-                    deviceRegistry = container.deviceRegistry,
+                    deviceRepository = container.deviceRepository,
                     demoDiscoveryController = container.demoDiscoveryController,
+                    sessionRepository = container.playerSessionRepository,
+                ),
+            )
+            val playerViewModel: PlayerViewModel = viewModel(
+                factory = PlayerViewModel.factory(
+                    sessionRepository = container.playerSessionRepository,
                 ),
             )
 
             ProAudioPlayerTheme {
                 ProAudioPlayerApp(
-                    viewModel = devicesViewModel,
+                    devicesViewModel = devicesViewModel,
+                    playerViewModel = playerViewModel,
                     showDemoControls = BuildConfig.DEBUG,
                 )
             }
