@@ -1,6 +1,8 @@
 package com.bodzey.proaudioplayer.core.session
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
+import com.bodzey.proaudioplayer.core.api.MixerState
+import com.bodzey.proaudioplayer.core.api.MixerTarget
 import com.bodzey.proaudioplayer.core.api.AudioOutputDescriptor
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
 import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
@@ -154,6 +156,33 @@ class PlayerSessionRepository(
         performAction(
             expectedDeviceId = expectedDeviceId,
             action = PlayerAction.Stop,
+        )
+    }
+
+    suspend fun mixer(
+        expectedDeviceId: DeviceId,
+    ): MixerState {
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "audio_mixer")
+        return apiClient.mixer(connected.endpoint)
+    }
+
+    suspend fun setMixer(
+        expectedDeviceId: DeviceId,
+        target: MixerTarget,
+        db: Double,
+        muted: Boolean,
+    ): MixerState {
+        require(db.isFinite() && db in -60.0..0.0) {
+            "Mixer level must be in -60..0 dB"
+        }
+        val connected = connectedState(expectedDeviceId)
+        requireFeature(connected, "audio_mixer")
+        return apiClient.setMixer(
+            endpoint = connected.endpoint,
+            target = target,
+            db = db,
+            muted = muted,
         )
     }
 
