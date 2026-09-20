@@ -36,6 +36,7 @@ fun DevicesScreen(
     demoEnabled: Boolean,
     showDemoControls: Boolean,
     onDemoEnabledChange: (Boolean) -> Unit,
+    onDeviceSelected: (com.bodzey.proaudioplayer.core.model.DeviceId) -> Unit,
 ) {
     Scaffold { contentPadding ->
         Column(
@@ -75,7 +76,10 @@ fun DevicesScreen(
                         items = devices,
                         key = { device -> device.id.value },
                     ) { device ->
-                        DeviceCard(device)
+                        DeviceCard(
+                            device = device,
+                            onClick = { onDeviceSelected(device.id) },
+                        )
                     }
 
                     item {
@@ -138,8 +142,10 @@ private fun EmptyDevicesState(
 @Composable
 private fun DeviceCard(
     device: AvailableDevice,
+    onClick: () -> Unit,
 ) {
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
