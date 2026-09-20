@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import com.bodzey.proaudioplayer.R
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
@@ -150,7 +151,11 @@ private fun ConnectedState(
             )
             StatusRow(
                 label = stringResource(R.string.player_volume),
-                value = formatVolume(state.status.volumePercent, state.status.muted),
+                value = if (state.status.muted) {
+                    stringResource(R.string.player_muted)
+                } else {
+                    formatVolume(state.status.volumePercent)
+                },
             )
         }
     }
@@ -226,12 +231,5 @@ private fun DeviceEndpoint.displayValue(): String {
     return formattedHost + ":" + port
 }
 
-private fun formatVolume(
-    percent: Double,
-    muted: Boolean,
-): String =
-    if (muted) {
-        "Muted"
-    } else {
-        String.format("%.1f%%", percent)
-    }
+private fun formatVolume(percent: Double): String =
+    String.format(Locale.ROOT, "%.1f%%", percent)
