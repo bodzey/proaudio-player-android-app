@@ -11,6 +11,8 @@ import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.api.MeterFrame
+import com.bodzey.proaudioplayer.core.api.MixerState
+import com.bodzey.proaudioplayer.core.api.MixerTarget
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
@@ -122,6 +124,29 @@ class OkHttpPlayerApiClient(
             jsonBody = """{"url":$encodedUrl}""",
         )
     }
+
+    override suspend fun mixer(
+        endpoint: DeviceEndpoint,
+    ): MixerState =
+        parser.mixerState(get(endpoint, "/api/v1/audio/mixer"))
+
+    override suspend fun setMixer(
+        endpoint: DeviceEndpoint,
+        target: MixerTarget,
+        db: Double,
+        muted: Boolean,
+    ): MixerState =
+        parser.mixerState(
+            postJsonForBody(
+                endpoint = endpoint,
+                path = "/api/v1/audio/mixer",
+                jsonBody = buildJsonObject {
+                    put("target", target.wireValue)
+                    put("db", db)
+                    put("muted", muted)
+                }.toString(),
+            ),
+        )
 
     override suspend fun audioOutputs(
         endpoint: DeviceEndpoint,
