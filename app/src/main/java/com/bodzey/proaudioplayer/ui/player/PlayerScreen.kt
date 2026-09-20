@@ -72,6 +72,8 @@ import com.bodzey.proaudioplayer.ui.components.ProAudioShell
 import com.bodzey.proaudioplayer.ui.components.SectionLabel
 import com.bodzey.proaudioplayer.ui.components.StatusBadge
 import com.bodzey.proaudioplayer.ui.components.StatusBadgeState
+import com.bodzey.proaudioplayer.ui.media.MediaUiState
+import com.bodzey.proaudioplayer.ui.media.mediaSection
 import com.bodzey.proaudioplayer.ui.meter.AudioMetersCard
 import com.bodzey.proaudioplayer.ui.output.AudioOutputCard
 import com.bodzey.proaudioplayer.ui.output.OutputUiState
@@ -93,12 +95,21 @@ fun PlayerScreen(
     alertsState: AlertsUiState,
     meterState: StateFlow<MeterState>,
     outputState: OutputUiState,
+    mediaState: MediaUiState,
     onSectionSelected: (AppSection) -> Unit,
     onAction: (PlayerAction) -> Unit,
     onMasterVolumeChange: (Double) -> Unit,
     onMasterMuteChange: (Boolean) -> Unit,
     onOutputRefresh: () -> Unit,
     onOutputSelect: (AudioOutputDescriptor) -> Unit,
+    onMediaRefresh: () -> Unit,
+    onMediaRefreshLibrary: () -> Unit,
+    onMediaLibraryQueryChange: (String) -> Unit,
+    onMediaPlayLibraryPath: (String) -> Unit,
+    onMediaLoadPlaylist: (String) -> Unit,
+    onMediaPlayQueueItem: (Int) -> Unit,
+    onMediaRemoveQueueItem: (Int) -> Unit,
+    onMediaClearQueue: () -> Unit,
     onRadioRefresh: () -> Unit,
     onRadioStationToggle: (RadioStation) -> Unit,
     onRadioCustomUrlChange: (String) -> Unit,
@@ -207,6 +218,21 @@ fun PlayerScreen(
                             onOutputSelect = onOutputSelect,
                         )
                     }
+                }
+
+                state is PlayerSessionState.Connected && section == AppSection.Media -> {
+                    mediaSection(
+                        state = mediaState,
+                        connected = state,
+                        onRefresh = onMediaRefresh,
+                        onRefreshLibrary = onMediaRefreshLibrary,
+                        onLibraryQueryChange = onMediaLibraryQueryChange,
+                        onPlayLibraryPath = onMediaPlayLibraryPath,
+                        onLoadPlaylist = onMediaLoadPlaylist,
+                        onPlayQueueItem = onMediaPlayQueueItem,
+                        onRemoveQueueItem = onMediaRemoveQueueItem,
+                        onClearQueue = onMediaClearQueue,
+                    )
                 }
 
                 state is PlayerSessionState.Connected && section == AppSection.Radio -> {
@@ -862,11 +888,13 @@ private fun SectionPlaceholder(
     val colors = LocalProAudioColors.current
     val title = when (section) {
         AppSection.Player -> stringResource(R.string.nav_player)
+        AppSection.Media -> stringResource(R.string.nav_media)
         AppSection.Radio -> stringResource(R.string.nav_radio)
         AppSection.Alerts -> stringResource(R.string.nav_alerts)
     }
     val message = when (section) {
-        AppSection.Player -> ""
+        AppSection.Player,
+        AppSection.Media -> ""
         AppSection.Radio -> stringResource(R.string.radio_port_pending)
         AppSection.Alerts -> stringResource(R.string.alerts_port_pending)
     }
