@@ -265,4 +265,45 @@ class ApiJsonParserTest {
         assertEquals(16777216L, media.maxSizeBytes)
     }
 
+
+    @Test
+    fun meterFrameParsesStereoPeakRmsAndClip() {
+        val frame = parser.meterFrame(
+            """
+            {
+              "sequence":42,
+              "sample_rate":48000,
+              "interval_ms":20,
+              "master":{
+                "peak":[-3.0,-4.0],
+                "rms":[-9.0,-10.0],
+                "clip":[false,true],
+                "available":true
+              },
+              "music":{
+                "peak":[-12.0,-13.0],
+                "rms":[-18.0,-19.0],
+                "clip":[false,false],
+                "available":true
+              },
+              "alert":{
+                "peak":[-60.0,-60.0],
+                "rms":[-60.0,-60.0],
+                "clip":[false,false],
+                "available":false
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(42L, frame.sequence)
+        assertEquals(48000, frame.sampleRate)
+        assertEquals(20L, frame.intervalMillis)
+        assertEquals(-3.0, frame.master.peakDb.left, 0.001)
+        assertEquals(-10.0, frame.master.rmsDb.right, 0.001)
+        assertFalse(frame.master.clipLeft)
+        assertTrue(frame.master.clipRight)
+        assertFalse(frame.alert.available)
+    }
+
 }
