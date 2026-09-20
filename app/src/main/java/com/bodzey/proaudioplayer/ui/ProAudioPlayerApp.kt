@@ -4,19 +4,33 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bodzey.proaudioplayer.ui.devices.DevicesScreen
 import com.bodzey.proaudioplayer.ui.devices.DevicesViewModel
+import com.bodzey.proaudioplayer.ui.player.PlayerScreen
+import com.bodzey.proaudioplayer.ui.player.PlayerViewModel
 
 @Composable
 fun ProAudioPlayerApp(
-    viewModel: DevicesViewModel,
+    devicesViewModel: DevicesViewModel,
+    playerViewModel: PlayerViewModel,
     showDemoControls: Boolean,
 ) {
-    val devices = viewModel.devices.collectAsStateWithLifecycle()
-    val demoEnabled = viewModel.demoEnabled.collectAsStateWithLifecycle()
+    val selectedDeviceId = playerViewModel.selectedDeviceId.collectAsStateWithLifecycle()
 
-    DevicesScreen(
-        devices = devices.value,
-        demoEnabled = demoEnabled.value,
-        showDemoControls = showDemoControls,
-        onDemoEnabledChange = viewModel::setDemoEnabled,
-    )
+    if (selectedDeviceId.value == null) {
+        val devices = devicesViewModel.devices.collectAsStateWithLifecycle()
+        val demoEnabled = devicesViewModel.demoEnabled.collectAsStateWithLifecycle()
+
+        DevicesScreen(
+            devices = devices.value,
+            demoEnabled = demoEnabled.value,
+            showDemoControls = showDemoControls,
+            onDemoEnabledChange = devicesViewModel::setDemoEnabled,
+            onDeviceSelected = devicesViewModel::selectDevice,
+        )
+    } else {
+        val sessionState = playerViewModel.state.collectAsStateWithLifecycle()
+        PlayerScreen(
+            state = sessionState.value,
+            onBack = playerViewModel::close,
+        )
+    }
 }
