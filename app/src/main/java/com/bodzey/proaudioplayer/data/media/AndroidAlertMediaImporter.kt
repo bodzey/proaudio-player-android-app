@@ -14,12 +14,19 @@ data class ImportedAlertMedia(
     val bytes: ByteArray,
 )
 
+interface AlertMediaImporter {
+    suspend fun read(
+        uriText: String,
+        maxBytes: Long,
+    ): ImportedAlertMedia
+}
+
 class AndroidAlertMediaImporter(
     context: Context,
 ) {
     private val resolver: ContentResolver = context.applicationContext.contentResolver
 
-    suspend fun read(
+    override suspend fun read(
         uriText: String,
         maxBytes: Long,
     ): ImportedAlertMedia = withContext(Dispatchers.IO) {
