@@ -15,5 +15,27 @@ interface PlayerApiClient {
     suspend fun alertProviderSettings(endpoint: DeviceEndpoint): AlertProviderSettings
     suspend fun alertAudioSettings(endpoint: DeviceEndpoint): AlertAudioSettings
     suspend fun alertMedia(endpoint: DeviceEndpoint): AlertMediaCatalog
+    suspend fun saveAlertProviderSettings(
+        endpoint: DeviceEndpoint,
+        update: AlertProviderUpdate,
+    ): AlertProviderSettings
+    suspend fun testAlertProviderSettings(
+        endpoint: DeviceEndpoint,
+        update: AlertProviderUpdate,
+    ): AlertProviderTestResult
+    suspend fun saveAlertAudioSettings(
+        endpoint: DeviceEndpoint,
+        update: AlertAudioUpdate,
+    ): AlertAudioSettings
+    suspend fun uploadAlertMedia(
+        endpoint: DeviceEndpoint,
+        kind: String,
+        bytes: ByteArray,
+        contentType: String,
+    ): AlertMediaFile
+    suspend fun resetAlertMedia(
+        endpoint: DeviceEndpoint,
+        kind: String,
+    ): AlertMediaFile
     fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus>
 }
