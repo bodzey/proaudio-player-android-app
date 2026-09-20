@@ -23,7 +23,7 @@ interface AlertMediaImporter {
 
 class AndroidAlertMediaImporter(
     context: Context,
-) {
+) : AlertMediaImporter {
     private val resolver: ContentResolver = context.applicationContext.contentResolver
 
     override suspend fun read(
