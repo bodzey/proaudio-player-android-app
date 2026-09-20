@@ -23,6 +23,11 @@ class OkHttpPlayerApiClient(
     private val parser: ApiJsonParser = ApiJsonParser(),
 ) : PlayerApiClient {
 
+    private val eventClient: OkHttpClient = client.newBuilder()
+        .readTimeout(0, TimeUnit.MILLISECONDS)
+        .callTimeout(0, TimeUnit.MILLISECONDS)
+        .build()
+
     override suspend fun health(endpoint: DeviceEndpoint): ApiHealth =
         parser.health(get(endpoint, "/api/v1/health"))
 
@@ -38,7 +43,7 @@ class OkHttpPlayerApiClient(
             .header("Accept", "text/event-stream")
             .header("Cache-Control", "no-cache")
             .build()
-        val call = client.newCall(request)
+        val call = eventClient.newCall(request)
 
         val reader = launch(Dispatchers.IO) {
             try {
@@ -121,9 +126,9 @@ class OkHttpPlayerApiClient(
         private fun defaultClient(): OkHttpClient =
             OkHttpClient.Builder()
                 .connectTimeout(2, TimeUnit.SECONDS)
-                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .readTimeout(4, TimeUnit.SECONDS)
                 .writeTimeout(4, TimeUnit.SECONDS)
-                .callTimeout(0, TimeUnit.MILLISECONDS)
+                .callTimeout(5, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(false)
                 .build()
     }
