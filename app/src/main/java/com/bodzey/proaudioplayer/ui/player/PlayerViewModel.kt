@@ -1,8 +1,10 @@
 package com.bodzey.proaudioplayer.ui.player
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.bodzey.proaudioplayer.core.api.PlayerAction
@@ -21,6 +23,7 @@ import kotlinx.coroutines.launch
 
 class PlayerViewModel(
     private val sessionRepository: PlayerSessionRepository,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val selectedDeviceId = sessionRepository.selectedDeviceId
     val state: StateFlow<PlayerSessionState> = sessionRepository.state
@@ -31,7 +34,11 @@ class PlayerViewModel(
     private val _actionError = MutableStateFlow<String?>(null)
     val actionError: StateFlow<String?> = _actionError.asStateFlow()
 
-    private val _section = MutableStateFlow(AppSection.Player)
+    private val _section = MutableStateFlow(
+        savedStateHandle.get<String>(KEY_SECTION)
+            ?.let { value -> runCatching { AppSection.valueOf(value) }.getOrNull() }
+            ?: AppSection.Player,
+    )
     val section: StateFlow<AppSection> = _section.asStateFlow()
 
     private val _masterMuteBusy = MutableStateFlow(false)
@@ -46,6 +53,10 @@ class PlayerViewModel(
         Channel<MasterVolumeRequest>(capacity = Channel.CONFLATED)
 
     init {
+        savedStateHandle.get<String>(KEY_SELECTED_DEVICE_ID)
+            ?.let(DeviceId::parse)
+            ?.let(sessionRepository::select)
+
         viewModelScope.launch {
             for (request in masterVolumeRequests) {
                 if (selectedDeviceId.value != request.deviceId) {
@@ -91,6 +102,13 @@ class PlayerViewModel(
         }
     }
 
+    fun rememberSelectedDevice(deviceId: DeviceId) {
+        if (sessionRepository.selectedDeviceId.value != deviceId) {
+            sessionRepository.select(deviceId)
+        }
+        savedStateHandle[KEY_SELECTED_DEVICE_ID] = deviceId.value
+    }
+
     fun performAction(action: PlayerAction) {
         if (_pendingAction.value != null) {
             return
@@ -110,6 +128,7 @@ class PlayerViewModel(
 
     fun selectSection(section: AppSection) {
         _section.value = section
+        savedStateHandle[KEY_SECTION] = section.name
     }
 
     fun setMasterVolume(percent: Double) {
@@ -149,6 +168,8 @@ class PlayerViewModel(
         _masterVolumeOverride.value = null
         _lastSentMasterVolume.value = null
         _section.value = AppSection.Player
+        savedStateHandle.remove<String>(KEY_SELECTED_DEVICE_ID)
+        savedStateHandle[KEY_SECTION] = AppSection.Player.name
         sessionRepository.clearSelection()
     }
 
@@ -161,12 +182,18 @@ class PlayerViewModel(
         private const val MASTER_VOLUME_REQUEST_INTERVAL_MILLIS = 75L
         private const val MASTER_VOLUME_ACK_TOLERANCE_PERCENT = 0.75
         private const val MASTER_VOLUME_TARGET_TOLERANCE_PERCENT = 0.01
+        private const val KEY_SELECTED_DEVICE_ID = "selected_device_id"
+        private const val KEY_SECTION = "player_section"
+
         fun factory(
             sessionRepository: PlayerSessionRepository,
         ): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
-                    PlayerViewModel(sessionRepository)
+                    PlayerViewModel(
+                        sessionRepository = sessionRepository,
+                        savedStateHandle = createSavedStateHandle(),
+                    )
                 }
             }
     }
