@@ -3,7 +3,10 @@ package com.bodzey.proaudioplayer.data.api
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
 import com.bodzey.proaudioplayer.core.api.AudioLevelState
+import com.bodzey.proaudioplayer.core.api.MpdState
 import com.bodzey.proaudioplayer.core.api.PlayerControls
+import com.bodzey.proaudioplayer.core.api.PriorityState
+import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
 import kotlinx.serialization.json.Json
@@ -67,10 +70,21 @@ internal class ApiJsonParser(
             db = masterObject?.optionalDouble("db"),
         )
 
+        val priorityObject = root["priority"]?.jsonObject
+        val mpdObject = root["mpd"]?.jsonObject
+
         return PlayerStatus(
             name = root.requiredString("name"),
             master = master,
             music = music,
+            priority = PriorityState(
+                active = priorityObject.optionalBoolean("active") ?: false,
+                blocking = priorityObject.optionalBoolean("blocking") ?: false,
+            ),
+            mpd = MpdState(
+                isStream = mpdObject.optionalBoolean("is_stream") ?: false,
+                streamUrl = mpdObject.optionalString("stream_url"),
+            ),
             player = PlayerState(
                 source = player.stringOrEmpty("source"),
                 backend = player.stringOrEmpty("backend"),
@@ -86,6 +100,43 @@ internal class ApiJsonParser(
                 controls = player.controls(),
             ),
         )
+    }
+
+
+    fun radioStations(payload: String): List<RadioStation> {
+        val root = objectRoot(payload)
+        return root["items"]
+            ?.jsonArray
+            ?.mapNotNull { element ->
+                val station = runCatching { element.jsonObject }.getOrNull()
+                    ?: return@mapNotNull null
+                val id = station.optionalString("id")?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                val name = station.optionalString("name")?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                val url = station.optionalString("url")?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+
+                RadioStation(
+                    id = id,
+                    name = name,
+                    url = url,
+                    homepage = station.optionalString("homepage"),
+                    favicon = station.optionalString("favicon"),
+                    tags = station["tags"]
+                        ?.jsonArray
+                        ?.mapNotNull { value -> value.jsonPrimitive.contentOrNull }
+                        .orEmpty(),
+                    codec = station.optionalString("codec"),
+                    bitrate = station["bitrate"]?.jsonPrimitive?.intOrNull,
+                    votes = station["votes"]
+                        ?.jsonPrimitive
+                        ?.contentOrNull
+                        ?.toLongOrNull()
+                        ?: 0L,
+                )
+            }
+            .orEmpty()
     }
 
     private fun objectRoot(payload: String): JsonObject =
@@ -130,8 +181,11 @@ internal class ApiJsonParser(
     private fun JsonObject.optionalBoolean(key: String): Boolean? =
         this[key]?.jsonPrimitive?.booleanOrNull
 
+    private fun JsonObject.optionalString(key: String): String? =
+        this[key]?.jsonPrimitive?.contentOrNull
+
     private fun JsonObject.stringOrEmpty(key: String): String =
-        this[key]?.jsonPrimitive?.contentOrNull.orEmpty()
+        optionalString(key).orEmpty()
 
     private fun JsonObject?.boolean(key: String): Boolean =
         this?.get(key)?.jsonPrimitive?.booleanOrNull ?: false
