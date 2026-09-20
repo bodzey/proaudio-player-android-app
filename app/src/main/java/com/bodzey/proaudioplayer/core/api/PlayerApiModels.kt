@@ -30,6 +30,7 @@ data class PlayerState(
     val durationSeconds: Double?,
     val progressPercent: Int,
     val controls: PlayerControls,
+    val artUrl: String? = null,
 )
 
 data class AudioLevelState(

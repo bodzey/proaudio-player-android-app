@@ -7,7 +7,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.compose.runtime.Immutable
 import com.bodzey.proaudioplayer.core.api.PlayerAction
+import com.bodzey.proaudioplayer.core.api.PlayerStatus
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
@@ -17,17 +19,118 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+@Immutable
+data class PlayerTimeline(
+    val state: String,
+    val positionSeconds: Double?,
+    val durationSeconds: Double?,
+    val progressPercent: Int,
+)
+
+internal fun samePlayerUiState(
+    previous: PlayerSessionState,
+    next: PlayerSessionState,
+): Boolean {
+    if (previous === next) return true
+    if (previous !is PlayerSessionState.Connected ||
+        next !is PlayerSessionState.Connected
+    ) {
+        return previous == next
+    }
+
+    return previous.deviceId == next.deviceId &&
+        previous.displayName == next.displayName &&
+        previous.endpoint == next.endpoint &&
+        previous.capabilities == next.capabilities &&
+        samePlayerUiStatus(previous.status, next.status)
+}
+
+private fun samePlayerUiStatus(
+    previous: PlayerStatus,
+    next: PlayerStatus,
+): Boolean {
+    if (previous.name != next.name ||
+        previous.audioTopologyRevision != next.audioTopologyRevision ||
+        previous.master != next.master ||
+        previous.music != next.music ||
+        previous.priority != next.priority ||
+        previous.mpd != next.mpd
+    ) {
+        return false
+    }
+
+    val left = previous.player
+    val right = next.player
+    return left.source == right.source &&
+        left.backend == right.backend &&
+        left.state == right.state &&
+        left.title == right.title &&
+        left.artist == right.artist &&
+        left.album == right.album &&
+        left.artUrl == right.artUrl &&
+        left.durationSeconds == right.durationSeconds &&
+        left.controls == right.controls
+}
 
 class PlayerViewModel(
     private val sessionRepository: PlayerSessionRepository,
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val selectedDeviceId = sessionRepository.selectedDeviceId
+
     val state: StateFlow<PlayerSessionState> = sessionRepository.state
+        .distinctUntilChanged(::samePlayerUiState)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(
+                stopTimeoutMillis = 0,
+                replayExpirationMillis = 0,
+            ),
+            initialValue = sessionRepository.state.value,
+        )
+
+    val timeline: StateFlow<PlayerTimeline?> = sessionRepository.state
+        .map { session ->
+            (session as? PlayerSessionState.Connected)
+                ?.status
+                ?.player
+                ?.let { player ->
+                    PlayerTimeline(
+                        state = player.state,
+                        positionSeconds = player.positionSeconds,
+                        durationSeconds = player.durationSeconds,
+                        progressPercent = player.progressPercent,
+                    )
+                }
+        }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(
+                stopTimeoutMillis = 0,
+                replayExpirationMillis = 0,
+            ),
+            initialValue = (sessionRepository.state.value as? PlayerSessionState.Connected)
+                ?.status
+                ?.player
+                ?.let { player ->
+                    PlayerTimeline(
+                        state = player.state,
+                        positionSeconds = player.positionSeconds,
+                        durationSeconds = player.durationSeconds,
+                        progressPercent = player.progressPercent,
+                    )
+                },
+        )
 
     private val _pendingAction = MutableStateFlow<PlayerAction?>(null)
     val pendingAction: StateFlow<PlayerAction?> = _pendingAction.asStateFlow()
@@ -91,7 +194,7 @@ class PlayerViewModel(
         }
 
         viewModelScope.launch {
-            state.collect { sessionState ->
+            sessionRepository.state.collect { sessionState ->
                 val target = _masterVolumeOverride.value ?: return@collect
                 val sentTarget = _lastSentMasterVolume.value ?: return@collect
                 val connected = sessionState as? PlayerSessionState.Connected

@@ -75,6 +75,7 @@ class ApiJsonParserTest {
                 "title":"Track",
                 "artist":"Artist",
                 "album":"Album",
+                "art_url":"https://i.scdn.co/image/test-cover",
                 "position_seconds":12.5,
                 "duration_seconds":180.0,
                 "progress":7,
@@ -109,6 +110,7 @@ class ApiJsonParserTest {
         assertEquals("https://radio.example/live", status.mpd.streamUrl)
         assertEquals("Spotify Connect", status.player.source)
         assertEquals("Track", status.player.title)
+        assertEquals("https://i.scdn.co/image/test-cover", status.player.artUrl)
         assertTrue(status.player.controls.pause)
         assertTrue(status.player.controls.previous)
     }

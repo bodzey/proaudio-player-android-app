@@ -126,6 +126,8 @@ internal class ApiJsonParser(
                     ?.coerceIn(0, 100)
                     ?: 0,
                 controls = player.controls(),
+                artUrl = player.optionalString("art_url")
+                    ?.takeIf(String::isNotBlank),
             ),
         )
     }

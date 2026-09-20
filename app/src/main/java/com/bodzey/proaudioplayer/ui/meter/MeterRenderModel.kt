@@ -1,6 +1,7 @@
 package com.bodzey.proaudioplayer.ui.meter
 
 import android.os.SystemClock
+import androidx.compose.runtime.Stable
 import com.bodzey.proaudioplayer.core.api.MeterFrame
 import com.bodzey.proaudioplayer.core.api.StereoMeterLevel
 import kotlin.math.exp
@@ -18,6 +19,7 @@ internal enum class MeterStreamStatus {
     Failed,
 }
 
+@Stable
 class MeterRenderSource internal constructor(
     internal val status: StateFlow<MeterStreamStatus>,
     internal val buffer: MeterRenderBuffer,

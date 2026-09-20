@@ -104,6 +104,7 @@ fun ProAudioPlayerApp(
             radioState = radioState.value,
             alertsState = alertsState.value,
             meterSource = meterViewModel.renderSource,
+            playerTimeline = playerViewModel.timeline,
             mixerState = mixerState.value,
             outputState = outputState.value,
             mediaState = mediaState.value,

@@ -1,9 +1,9 @@
 package com.bodzey.proaudioplayer.ui.player
 
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,8 +30,11 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,6 +45,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -51,6 +55,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bodzey.proaudioplayer.R
 import com.bodzey.proaudioplayer.core.api.AudioLevelState
 import com.bodzey.proaudioplayer.core.api.AudioOutputDescriptor
@@ -83,7 +88,10 @@ import com.bodzey.proaudioplayer.ui.output.OutputUiState
 import com.bodzey.proaudioplayer.ui.radio.RadioUiState
 import com.bodzey.proaudioplayer.ui.radio.radioSection
 import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
+import coil3.compose.AsyncImage
 import java.util.Locale
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun PlayerScreen(
@@ -96,6 +104,7 @@ fun PlayerScreen(
     radioState: RadioUiState,
     alertsState: AlertsUiState,
     meterSource: MeterRenderSource,
+    playerTimeline: StateFlow<PlayerTimeline?>,
     mixerState: MixerUiState,
     outputState: OutputUiState,
     mediaState: MediaUiState,
@@ -215,6 +224,7 @@ fun PlayerScreen(
                             masterMuteBusy = masterMuteBusy,
                             masterVolumeOverride = masterVolumeOverride,
                             meterSource = meterSource,
+                            playerTimeline = playerTimeline,
                             mixerState = mixerState,
                             outputState = outputState,
                             onAction = onAction,
@@ -342,6 +352,7 @@ private fun ConnectedState(
     masterMuteBusy: Boolean,
     masterVolumeOverride: Double?,
     meterSource: MeterRenderSource,
+    playerTimeline: StateFlow<PlayerTimeline?>,
     mixerState: MixerUiState,
     outputState: OutputUiState,
     onAction: (PlayerAction) -> Unit,
@@ -375,6 +386,7 @@ private fun ConnectedState(
                         ) {
                             PlayerArtwork(
                                 source = player.source,
+                                artUrl = player.artUrl,
                             )
                         }
                         Box(
@@ -382,6 +394,7 @@ private fun ConnectedState(
                         ) {
                             PlayerMeta(
                                 player = player,
+                                timeline = playerTimeline,
                                 pendingAction = pendingAction,
                                 onAction = onAction,
                             )
@@ -391,9 +404,11 @@ private fun ConnectedState(
                     Column {
                         PlayerArtwork(
                             source = player.source,
+                            artUrl = player.artUrl,
                         )
                         PlayerMeta(
                             player = player,
+                            timeline = playerTimeline,
                             pendingAction = pendingAction,
                             onAction = onAction,
                         )
@@ -462,6 +477,7 @@ private fun ConnectedState(
 @Composable
 private fun PlayerArtwork(
     source: String,
+    artUrl: String?,
 ) {
     val colors = LocalProAudioColors.current
 
@@ -510,6 +526,15 @@ private fun PlayerArtwork(
             )
         }
 
+        if (!artUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = artUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        }
+
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -536,14 +561,11 @@ private fun PlayerArtwork(
 @Composable
 private fun PlayerMeta(
     player: PlayerState,
+    timeline: StateFlow<PlayerTimeline?>,
     pendingAction: PlayerAction?,
     onAction: (PlayerAction) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
-    val progress by animateFloatAsState(
-        targetValue = player.progressPercent.coerceIn(0, 100).toFloat(),
-        label = "playerProgress",
-    )
 
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
@@ -576,9 +598,7 @@ private fun PlayerMeta(
         Spacer(modifier = Modifier.height(22.dp))
 
         PlayerProgress(
-            progress = progress,
-            positionSeconds = player.positionSeconds,
-            durationSeconds = player.durationSeconds,
+            timeline = timeline,
         )
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -594,11 +614,55 @@ private fun PlayerMeta(
 
 @Composable
 private fun PlayerProgress(
-    progress: Float,
-    positionSeconds: Double?,
-    durationSeconds: Double?,
+    timeline: StateFlow<PlayerTimeline?>,
 ) {
     val colors = LocalProAudioColors.current
+    val snapshot by timeline.collectAsStateWithLifecycle()
+    val anchorAtNanos = remember(snapshot) {
+        SystemClock.elapsedRealtimeNanos()
+    }
+    var nowNanos by remember {
+        mutableLongStateOf(anchorAtNanos)
+    }
+
+    LaunchedEffect(snapshot?.state, anchorAtNanos) {
+        nowNanos = anchorAtNanos
+        if (snapshot?.state == "playing") {
+            while (true) {
+                delay(250)
+                nowNanos = SystemClock.elapsedRealtimeNanos()
+            }
+        }
+    }
+
+    val durationSeconds = snapshot
+        ?.durationSeconds
+        ?.takeIf { value -> value.isFinite() && value > 0.0 }
+    val positionSeconds = snapshot
+        ?.positionSeconds
+        ?.takeIf { value -> value.isFinite() && value >= 0.0 }
+        ?.let { anchor ->
+            val estimated = if (snapshot?.state == "playing") {
+                anchor +
+                    (nowNanos - anchorAtNanos)
+                        .coerceAtLeast(0L) /
+                        1_000_000_000.0
+            } else {
+                anchor
+            }
+            durationSeconds?.let(estimated::coerceAtMost) ?: estimated
+        }
+    val progress = when {
+        durationSeconds != null && positionSeconds != null ->
+            ((positionSeconds / durationSeconds) * 100.0)
+                .coerceIn(0.0, 100.0)
+                .toFloat()
+        else -> snapshot
+            ?.progressPercent
+            ?.coerceIn(0, 100)
+            ?.toFloat()
+            ?: 0f
+    }
 
     Column {
         Box(
