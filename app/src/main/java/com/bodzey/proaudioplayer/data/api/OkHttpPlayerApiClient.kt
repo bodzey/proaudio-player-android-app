@@ -2,6 +2,9 @@ package com.bodzey.proaudioplayer.data.api
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
+import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
+import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
+import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
@@ -90,6 +93,21 @@ class OkHttpPlayerApiClient(
             json = """{"url":$encodedUrl}""",
         )
     }
+
+    override suspend fun alertProviderSettings(
+        endpoint: DeviceEndpoint,
+    ): AlertProviderSettings =
+        parser.alertProviderSettings(get(endpoint, "/api/v1/settings/alerts"))
+
+    override suspend fun alertAudioSettings(
+        endpoint: DeviceEndpoint,
+    ): AlertAudioSettings =
+        parser.alertAudioSettings(get(endpoint, "/api/v1/settings/audio"))
+
+    override suspend fun alertMedia(
+        endpoint: DeviceEndpoint,
+    ): AlertMediaCatalog =
+        parser.alertMedia(get(endpoint, "/api/v1/settings/alerts/media"))
 
     override fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus> = channelFlow {
         val request = Request.Builder()
