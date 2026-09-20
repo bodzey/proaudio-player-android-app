@@ -604,4 +604,93 @@ class OkHttpPlayerApiClientTest {
         }
     }
 
+    @Test
+    fun extendedControlPathsUseStableV1Contract() {
+        MockWebServer().use { server ->
+            server.start()
+            repeat(8) {
+                server.enqueue(
+                    MockResponse.Builder()
+                        .body(
+                            when (it) {
+                                0 -> """{"items":[]}"""
+                                1 -> """{"selected":{"id":"out","name":"Output","state":"RUNNING","device_class":"sound","alsa_card":null,"selected":true,"available":true,"capabilities":{"sample_format":null,"sample_rate":48000,"channels":2,"channel_map":[],"alsa_device":null,"device_api":"alsa","device_bus":"usb"}},"applying":false,"applied":true}"""
+                                2 -> """{"items":["music/track.flac"]}"""
+                                3 -> """{"updating":true}"""
+                                4 -> """{"playing":"music/track.flac"}"""
+                                5 -> """{"items":["mix"]}"""
+                                6 -> """{"playing_playlist":"mix"}"""
+                                else -> """{"items":[{"position":1,"file":"music/track.flac","title":"Track","artist":"","album":""}]}"""
+                            },
+                        )
+                        .build(),
+                )
+            }
+
+            val api = OkHttpPlayerApiClient(client = OkHttpClient())
+            val endpoint = DeviceEndpoint(server.hostName, server.port)
+
+            runBlocking {
+                api.audioOutputs(endpoint)
+                api.selectAudioOutput(endpoint, "out")
+                api.library(endpoint)
+                api.refreshLibrary(endpoint)
+                api.playLibraryPath(endpoint, "music/track.flac")
+                api.playlists(endpoint)
+                api.loadPlaylist(endpoint, "mix")
+                api.queue(endpoint)
+            }
+
+            val lines = List(8) { server.takeRequest().requestLine }
+            assertEquals("GET /api/v1/audio/outputs HTTP/1.1", lines[0])
+            assertEquals("POST /api/v1/audio/outputs HTTP/1.1", lines[1])
+            assertEquals("GET /api/v1/library HTTP/1.1", lines[2])
+            assertEquals("POST /api/v1/library/update HTTP/1.1", lines[3])
+            assertEquals("POST /api/v1/library/play HTTP/1.1", lines[4])
+            assertEquals("GET /api/v1/playlists HTTP/1.1", lines[5])
+            assertEquals("POST /api/v1/playlists/load HTTP/1.1", lines[6])
+            assertEquals("GET /api/v1/queue HTTP/1.1", lines[7])
+        }
+    }
+
+    @Test
+    fun queueMutationsUsePositionContract() {
+        MockWebServer().use { server ->
+            server.start()
+            repeat(3) {
+                server.enqueue(
+                    MockResponse.Builder()
+                        .body(
+                            when (it) {
+                                0 -> """{"playing_position":2}"""
+                                1 -> """{"removed_position":2}"""
+                                else -> """{"cleared":true}"""
+                            },
+                        )
+                        .build(),
+                )
+            }
+
+            val api = OkHttpPlayerApiClient(client = OkHttpClient())
+            val endpoint = DeviceEndpoint(server.hostName, server.port)
+
+            runBlocking {
+                api.playQueueItem(endpoint, 2)
+                api.removeQueueItem(endpoint, 2)
+                api.clearQueue(endpoint)
+            }
+
+            val play = server.takeRequest()
+            val remove = server.takeRequest()
+            val clear = server.takeRequest()
+
+            assertEquals("POST /api/v1/queue/play HTTP/1.1", play.requestLine)
+            assertEquals("""{"position":2}""", play.body?.utf8())
+            assertEquals("POST /api/v1/queue/remove HTTP/1.1", remove.requestLine)
+            assertEquals("""{"position":2}""", remove.body?.utf8())
+            assertEquals("POST /api/v1/queue/clear HTTP/1.1", clear.requestLine)
+            assertEquals("{}", clear.body?.utf8())
+        }
+    }
+
 }
