@@ -49,6 +49,7 @@ import com.bodzey.proaudioplayer.core.api.AudioLevelState
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerControls
 import com.bodzey.proaudioplayer.core.api.PlayerState
+import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.AppSection
 import com.bodzey.proaudioplayer.ui.components.PrimaryNavigation
@@ -58,6 +59,8 @@ import com.bodzey.proaudioplayer.ui.components.ProAudioShell
 import com.bodzey.proaudioplayer.ui.components.SectionLabel
 import com.bodzey.proaudioplayer.ui.components.StatusBadge
 import com.bodzey.proaudioplayer.ui.components.StatusBadgeState
+import com.bodzey.proaudioplayer.ui.radio.RadioUiState
+import com.bodzey.proaudioplayer.ui.radio.radioSection
 import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
 import java.util.Locale
 
@@ -69,10 +72,15 @@ fun PlayerScreen(
     masterMuteBusy: Boolean,
     masterVolumeOverride: Double?,
     actionError: String?,
+    radioState: RadioUiState,
     onSectionSelected: (AppSection) -> Unit,
     onAction: (PlayerAction) -> Unit,
     onMasterVolumeChange: (Double) -> Unit,
     onMasterMuteChange: (Boolean) -> Unit,
+    onRadioRefresh: () -> Unit,
+    onRadioStationToggle: (RadioStation) -> Unit,
+    onRadioCustomUrlChange: (String) -> Unit,
+    onRadioPlayCustom: () -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -132,6 +140,10 @@ fun PlayerScreen(
                 PrimaryNavigation(
                     selected = section,
                     onSelected = onSectionSelected,
+                    alertActive = (state as? PlayerSessionState.Connected)
+                        ?.status
+                        ?.priority
+                        ?.active == true,
                 )
             }
 
@@ -141,9 +153,9 @@ fun PlayerScreen(
                 }
             }
 
-            item {
-                when {
-                    state is PlayerSessionState.Connected && section == AppSection.Player ->
+            when {
+                state is PlayerSessionState.Connected && section == AppSection.Player -> {
+                    item(key = "player-section") {
                         ConnectedState(
                             state = state,
                             pendingAction = pendingAction,
@@ -153,26 +165,48 @@ fun PlayerScreen(
                             onMasterVolumeChange = onMasterVolumeChange,
                             onMasterMuteChange = onMasterMuteChange,
                         )
+                    }
+                }
 
-                    state is PlayerSessionState.Connected ->
+                state is PlayerSessionState.Connected && section == AppSection.Radio -> {
+                    radioSection(
+                        state = radioState,
+                        connected = state,
+                        onRefresh = onRadioRefresh,
+                        onStationToggle = onRadioStationToggle,
+                        onCustomUrlChange = onRadioCustomUrlChange,
+                        onPlayCustom = onRadioPlayCustom,
+                    )
+                }
+
+                state is PlayerSessionState.Connected -> {
+                    item(key = "section-placeholder") {
                         SectionPlaceholder(section)
+                    }
+                }
 
-                    state is PlayerSessionState.Connecting ->
+                state is PlayerSessionState.Connecting -> {
+                    item(key = "connecting") {
                         ConnectingState(state)
+                    }
+                }
 
-                    state is PlayerSessionState.Offline ->
+                state is PlayerSessionState.Offline -> {
+                    item(key = "offline") {
                         MessageState(
                             title = stringResource(R.string.player_offline),
                             message = stringResource(R.string.player_offline_support),
                         )
+                    }
+                }
 
-                    state is PlayerSessionState.Failed ->
+                state is PlayerSessionState.Failed -> {
+                    item(key = "failed") {
                         MessageState(
                             title = state.displayName,
                             message = state.message,
                         )
-
-                    else -> Unit
+                    }
                 }
             }
         }
