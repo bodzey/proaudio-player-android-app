@@ -33,6 +33,7 @@ import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
 @Composable
 fun AudioOutputCard(
     state: OutputUiState,
+    blocked: Boolean,
     onRefresh: () -> Unit,
     onSelect: (AudioOutputDescriptor) -> Unit,
     modifier: Modifier = Modifier,
@@ -57,6 +58,14 @@ fun AudioOutputCard(
                 color = colors.textMuted,
                 style = MaterialTheme.typography.bodyMedium,
             )
+
+            if (blocked) {
+                Text(
+                    text = stringResource(R.string.outputs_blocked),
+                    color = colors.warning,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
 
             when {
                 state.loading && state.outputs.isEmpty() -> {
@@ -90,7 +99,8 @@ fun AudioOutputCard(
                         OutputRow(
                             output = output,
                             pending = state.pendingOutputId == output.id,
-                            interactionsEnabled = state.pendingOutputId == null,
+                            interactionsEnabled =
+                                !blocked && state.pendingOutputId == null,
                             onSelect = onSelect,
                         )
                     }
