@@ -8,5 +8,7 @@ interface PlayerApiClient {
     suspend fun capabilities(endpoint: DeviceEndpoint): ApiCapabilities
     suspend fun status(endpoint: DeviceEndpoint): PlayerStatus
     suspend fun playerAction(endpoint: DeviceEndpoint, action: PlayerAction)
+    suspend fun setMasterVolume(endpoint: DeviceEndpoint, percent: Double)
+    suspend fun setMasterMute(endpoint: DeviceEndpoint, db: Double, muted: Boolean)
     fun statusEvents(endpoint: DeviceEndpoint): Flow<PlayerStatus>
 }
