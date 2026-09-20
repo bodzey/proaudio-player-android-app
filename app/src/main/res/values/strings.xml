@@ -30,6 +30,16 @@
     <string name="now_playing">Зараз відтворюється</string>
     <string name="no_active_stream">Немає активного потоку</string>
     <string name="master_output">MASTER OUTPUT</string>
+    <string name="meters_eyebrow">РІВНІ СИГНАЛУ</string>
+    <string name="meters_title">Аудіометри</string>
+    <string name="meters_master">MASTER</string>
+    <string name="meters_music">MUSIC</string>
+    <string name="meters_alert">ALERT</string>
+    <string name="meters_connecting">Підключення метрів…</string>
+    <string name="meters_unavailable">Метринг недоступний для цього плеєра</string>
+    <string name="meters_stream_failed">Потік метрів тимчасово недоступний</string>
+    <string name="meters_channel_description">%1$s, %2$s: peak %3$.1f dBFS, RMS %4$.1f dBFS</string>
+    <string name="meters_clip">CLIP</string>
     <string name="master_mute">MUTE MASTER</string>
     <string name="master_unmute">UNMUTE MASTER</string>
     <string name="nav_player">Плеєр</string>
