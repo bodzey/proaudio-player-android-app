@@ -77,15 +77,51 @@ class PlayerSessionRepository(
     }
 
     suspend fun performAction(action: PlayerAction) {
-        val connected = state.value as? PlayerSessionState.Connected
-            ?: throw IllegalStateException("Player session is not connected")
-        if ("player_control" !in connected.capabilities.features) {
-            throw ApiCompatibilityException("Player API does not advertise player control support")
-        }
+        val connected = connectedState()
+        requireFeature(connected, "player_control")
         apiClient.playerAction(
             endpoint = connected.endpoint,
             action = action,
         )
+    }
+
+    suspend fun setMasterVolume(percent: Double) {
+        require(percent.isFinite() && percent in 0.0..100.0) {
+            "Master volume must be between 0 and 100"
+        }
+        val connected = connectedState()
+        requireFeature(connected, "audio_mixer")
+        apiClient.setMasterVolume(
+            endpoint = connected.endpoint,
+            percent = percent,
+        )
+    }
+
+    suspend fun setMasterMuted(muted: Boolean) {
+        val connected = connectedState()
+        requireFeature(connected, "audio_mixer")
+        val db = connected.status.master.db
+            ?: throw ApiCompatibilityException("Player status does not expose master dB")
+        apiClient.setMasterMute(
+            endpoint = connected.endpoint,
+            db = db,
+            muted = muted,
+        )
+    }
+
+    private fun connectedState(): PlayerSessionState.Connected =
+        state.value as? PlayerSessionState.Connected
+            ?: throw IllegalStateException("Player session is not connected")
+
+    private fun requireFeature(
+        connected: PlayerSessionState.Connected,
+        feature: String,
+    ) {
+        if (feature !in connected.capabilities.features) {
+            throw ApiCompatibilityException(
+                "Player API does not advertise " + feature + " support",
+            )
+        }
     }
 
     private fun connect(device: AvailableDevice): Flow<PlayerSessionState> = flow {
