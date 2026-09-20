@@ -34,6 +34,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -461,6 +465,7 @@ private fun TransportControls(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TransportButton(
+            label = stringResource(R.string.player_previous),
             type = TransportIcon.Previous,
             action = PlayerAction.Previous,
             enabled = controls.previous,
@@ -469,6 +474,7 @@ private fun TransportControls(
         )
         Spacer(modifier = Modifier.size(10.dp))
         TransportButton(
+            label = stringResource(R.string.player_stop),
             type = TransportIcon.Stop,
             action = PlayerAction.Stop,
             enabled = controls.stop,
@@ -477,6 +483,9 @@ private fun TransportControls(
         )
         Spacer(modifier = Modifier.size(10.dp))
         TransportButton(
+            label = stringResource(
+                if (playing) R.string.player_pause else R.string.player_play,
+            ),
             type = if (playing) TransportIcon.Pause else TransportIcon.Play,
             action = if (playing) PlayerAction.Pause else PlayerAction.Play,
             enabled = if (playing) controls.pause else controls.play,
@@ -486,6 +495,7 @@ private fun TransportControls(
         )
         Spacer(modifier = Modifier.size(10.dp))
         TransportButton(
+            label = stringResource(R.string.player_next),
             type = TransportIcon.Next,
             action = PlayerAction.Next,
             enabled = controls.next,
@@ -497,6 +507,7 @@ private fun TransportControls(
 
 @Composable
 private fun TransportButton(
+    label: String,
     type: TransportIcon,
     action: PlayerAction,
     enabled: Boolean,
@@ -505,7 +516,7 @@ private fun TransportButton(
     onClick: (PlayerAction) -> Unit,
 ) {
     val colors = LocalProAudioColors.current
-    val size = if (primary) 62.dp else 46.dp
+    val size = if (primary) 62.dp else 48.dp
     val background = if (primary) {
         Brush.linearGradient(listOf(Color(0xFFFF7843), colors.accentStrong))
     } else {
@@ -515,7 +526,12 @@ private fun TransportButton(
     Surface(
         onClick = { onClick(action) },
         enabled = enabled && !pending,
-        modifier = Modifier.size(size),
+        modifier = Modifier
+            .size(size)
+            .semantics {
+                contentDescription = label
+                role = Role.Button
+            },
         shape = RoundedCornerShape(if (primary) 14.dp else 12.dp),
         color = Color.Transparent,
     ) {
