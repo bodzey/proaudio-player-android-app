@@ -75,16 +75,14 @@ fun ProAudioPlayerApp(
             audioTopologyRevision,
         ) {
             when {
-                section.value == AppSection.Player && connected -> {
-                    if (connectedState != null) {
-                        if ("audio_outputs" in connectedState.capabilities.features) {
-                            outputViewModel.ensureLoaded(
-                                force = audioTopologyRevision != null,
-                            )
-                        }
-                        if ("audio_mixer" in connectedState.capabilities.features) {
-                            mixerViewModel.ensureLoaded()
-                        }
+                section.value == AppSection.Player && connectedState != null -> {
+                    if ("audio_outputs" in connectedState.capabilities.features) {
+                        outputViewModel.ensureLoaded(
+                            force = audioTopologyRevision != null,
+                        )
+                    }
+                    if ("audio_mixer" in connectedState.capabilities.features) {
+                        mixerViewModel.ensureLoaded()
                     }
                 }
                 section.value == AppSection.Media && connected ->

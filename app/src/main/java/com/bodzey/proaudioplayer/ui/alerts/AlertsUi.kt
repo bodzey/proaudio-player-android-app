@@ -139,4 +139,4 @@ internal fun formatPercent(value: Double): String =
     String.format(Locale.ROOT, "%.1f%%", value)
 
 private val timestampFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss", Locale("uk", "UA"))
+    DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss", Locale.forLanguageTag("uk-UA"))

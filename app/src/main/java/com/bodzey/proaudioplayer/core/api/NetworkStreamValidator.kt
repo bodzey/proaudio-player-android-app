@@ -55,7 +55,8 @@ object NetworkStreamValidator {
             runCatching { InetAddress.getByName(host) }.getOrNull()
         ) {
             is Inet4Address -> {
-                parseIpv4(address.hostAddress)
+                address.hostAddress
+                    ?.let(::parseIpv4)
                     ?.let(::isUnsafeIpv4)
                     ?: false
             }

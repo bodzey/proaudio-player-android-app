@@ -497,7 +497,7 @@ class OkHttpPlayerApiClientTest {
                 request.requestLine,
             )
             assertEquals("audio/mpeg", request.headers["Content-Type"])
-            assertTrue(request.body?.readByteArray()?.contentEquals(payload) == true)
+            assertTrue(request.body?.toByteArray()?.contentEquals(payload) == true)
         }
     }
 
