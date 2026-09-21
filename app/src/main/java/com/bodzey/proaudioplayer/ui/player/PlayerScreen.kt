@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bodzey.proaudioplayer.R
 import com.bodzey.proaudioplayer.core.api.AudioLevelState
+import com.bodzey.proaudioplayer.core.api.ActiveSource
 import com.bodzey.proaudioplayer.core.api.AudioOutputDescriptor
 import com.bodzey.proaudioplayer.core.api.MixerTarget
 import com.bodzey.proaudioplayer.core.api.PlayerAction
@@ -387,6 +388,10 @@ private fun ConnectedState(
         Column(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (state.status.priority.blocking) {
+                PriorityBanner(priority = state.status.priority)
+            }
+
             ProAudioPanel(
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -471,6 +476,8 @@ private fun ConnectedState(
                 )
             }
 
+            SourcesCard(sources = state.status.sources)
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -494,6 +501,136 @@ private fun ConnectedState(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PriorityBanner(
+    priority: com.bodzey.proaudioplayer.core.api.PriorityState,
+) {
+    val colors = LocalProAudioColors.current
+    val minuteSilence = priority.minuteSilenceActive
+    val accent = if (minuteSilence) colors.warning else colors.danger
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = accent.copy(alpha = 0.10f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            accent.copy(alpha = 0.34f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(accent, CircleShape),
+            )
+            Text(
+                text = stringResource(
+                    if (minuteSilence) {
+                        R.string.priority_minute_banner
+                    } else {
+                        R.string.priority_alert_banner
+                    },
+                ),
+                color = colors.text,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SourcesCard(
+    sources: List<ActiveSource>,
+) {
+    val colors = LocalProAudioColors.current
+
+    ProAudioPanel(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                SectionLabel(text = stringResource(R.string.sources_eyebrow))
+                Text(
+                    text = stringResource(R.string.sources_title),
+                    color = colors.text,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+
+            if (sources.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.sources_empty),
+                    color = colors.textMuted,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                sources.forEach { source ->
+                    SourceRow(source = source)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SourceRow(
+    source: ActiveSource,
+) {
+    val colors = LocalProAudioColors.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colors.canvasInset, RoundedCornerShape(10.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(
+                    if (source.active) colors.success else colors.textMuted,
+                    CircleShape,
+                ),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = source.type.ifBlank { source.application.ifBlank { source.key } },
+                color = colors.text,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            source.media.takeIf(String::isNotBlank)?.let { media ->
+                Text(
+                    text = media,
+                    color = colors.textMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (source.active) {
+            Text(
+                text = stringResource(R.string.source_active),
+                color = colors.success,
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = FontFamily.Monospace,
+            )
         }
     }
 }

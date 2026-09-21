@@ -36,6 +36,12 @@
     <string name="player_events">Події</string>
     <string name="player_muted">MUTE</string>
     <string name="player_no_source">Без джерела</string>
+    <string name="priority_alert_banner">Активна тривога · керування музикою обмежено</string>
+    <string name="priority_minute_banner">Триває хвилина мовчання · керування музикою обмежено</string>
+    <string name="sources_eyebrow">ДЖЕРЕЛА</string>
+    <string name="sources_title">Активні аудіоджерела</string>
+    <string name="sources_empty">Активних джерел немає</string>
+    <string name="source_active">АКТИВНЕ</string>
     <string name="now_playing">Зараз відтворюється</string>
     <string name="no_active_stream">Немає активного потоку</string>
     <string name="master_output">MASTER OUTPUT</string>

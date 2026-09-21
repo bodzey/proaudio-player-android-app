@@ -2,6 +2,7 @@ package com.bodzey.proaudioplayer.data.api
 
 import com.bodzey.proaudioplayer.core.api.ApiCapabilities
 import com.bodzey.proaudioplayer.core.api.ApiHealth
+import com.bodzey.proaudioplayer.core.api.ActiveSource
 import com.bodzey.proaudioplayer.core.api.AudioOutputCapabilities
 import com.bodzey.proaudioplayer.core.api.AudioOutputDescriptor
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
@@ -129,6 +130,22 @@ internal class ApiJsonParser(
                 artUrl = player.optionalString("art_url")
                     ?.takeIf(String::isNotBlank),
             ),
+            sources = root["sources"]
+                ?.jsonArray
+                ?.mapNotNull { element ->
+                    val source = runCatching { element.jsonObject }.getOrNull()
+                        ?: return@mapNotNull null
+                    val key = source.optionalString("key")?.takeIf(String::isNotBlank)
+                        ?: return@mapNotNull null
+                    ActiveSource(
+                        key = key,
+                        active = source.optionalBoolean("active") ?: false,
+                        type = source.optionalString("type").orEmpty(),
+                        application = source.optionalString("application").orEmpty(),
+                        media = source.optionalString("media").orEmpty(),
+                    )
+                }
+                .orEmpty(),
         )
     }
 

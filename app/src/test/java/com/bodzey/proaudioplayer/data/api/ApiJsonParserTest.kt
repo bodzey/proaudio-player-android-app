@@ -60,6 +60,13 @@ class ApiJsonParserTest {
                 "is_stream":true,
                 "stream_url":"https://radio.example/live"
               },
+              "sources":[{
+                "key":"spotify",
+                "active":true,
+                "type":"Spotify Connect",
+                "application":"spotifyd",
+                "media":"Track"
+              }],
               "audio_levels":{
                 "master":{
                   "volume":42.5,
@@ -113,6 +120,9 @@ class ApiJsonParserTest {
         assertEquals("https://i.scdn.co/image/test-cover", status.player.artUrl)
         assertTrue(status.player.controls.pause)
         assertTrue(status.player.controls.previous)
+        assertEquals(1, status.sources.size)
+        assertEquals("spotify", status.sources.single().key)
+        assertTrue(status.sources.single().active)
     }
     @Test
     fun radioDirectoryParsesNormalizedStations() {

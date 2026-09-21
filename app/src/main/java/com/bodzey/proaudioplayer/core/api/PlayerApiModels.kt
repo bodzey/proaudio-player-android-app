@@ -56,6 +56,14 @@ data class MpdState(
     val streamUrl: String?,
 )
 
+data class ActiveSource(
+    val key: String,
+    val active: Boolean,
+    val type: String,
+    val application: String,
+    val media: String,
+)
+
 data class RadioStation(
     val id: String,
     val name: String,
@@ -76,4 +84,5 @@ data class PlayerStatus(
     val priority: PriorityState,
     val mpd: MpdState,
     val player: PlayerState,
+    val sources: List<ActiveSource> = emptyList(),
 )
