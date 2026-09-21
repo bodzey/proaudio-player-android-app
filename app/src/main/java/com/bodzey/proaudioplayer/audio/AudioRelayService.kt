@@ -121,6 +121,7 @@ class AudioRelayService : Service() {
         _error.value = null
         val manager = getSystemService(MediaProjectionManager::class.java)
         val mediaProjection = manager.getMediaProjection(resultCode, resultData)
+            ?: throw IllegalStateException("MediaProjection is unavailable")
         projection = mediaProjection
 
         mediaProjection.registerCallback(
