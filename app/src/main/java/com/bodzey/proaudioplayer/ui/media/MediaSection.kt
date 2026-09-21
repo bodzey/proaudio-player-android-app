@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bodzey.proaudioplayer.R
+import com.bodzey.proaudioplayer.core.api.PlayerFeature
 import com.bodzey.proaudioplayer.core.api.QueueItem
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.components.ProAudioPanel
@@ -88,7 +89,7 @@ fun LazyListScope.mediaSection(
         }
     }
 
-    if ("queue" in features) {
+    if (PlayerFeature.QUEUE in features) {
         item(key = "media-queue-header") {
             MediaSectionHeader(
                 eyebrow = stringResource(R.string.media_queue_eyebrow),
@@ -126,7 +127,7 @@ fun LazyListScope.mediaSection(
         }
     }
 
-    if ("playlists" in features) {
+    if (PlayerFeature.PLAYLISTS in features) {
         item(key = "media-playlists-header") {
             MediaSectionHeader(
                 eyebrow = stringResource(R.string.media_playlists_eyebrow),
@@ -159,7 +160,7 @@ fun LazyListScope.mediaSection(
         }
     }
 
-    if ("library" in features) {
+    if (PlayerFeature.LIBRARY in features) {
         item(key = "media-library-header") {
             LibraryHeader(
                 query = state.libraryQuery,

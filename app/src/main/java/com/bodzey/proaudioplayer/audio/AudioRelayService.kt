@@ -15,7 +15,9 @@ import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import androidx.annotation.RequiresApi
 import com.bodzey.proaudioplayer.MainActivity
 import com.bodzey.proaudioplayer.R
@@ -26,6 +28,7 @@ import java.nio.ByteOrder
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -79,7 +82,13 @@ class AudioRelayService : Service() {
         }
 
         startForegroundCompat(buildNotification())
-        startRelay(intent)
+        runCatching {
+            startRelay(intent)
+        }.onFailure {
+            _error.value = getString(R.string.audio_relay_failed)
+            cleanupRelay(cancelJob = true)
+            stopSelf()
+        }
         return START_NOT_STICKY
     }
 
@@ -109,6 +118,7 @@ class AudioRelayService : Service() {
         }
 
         val endpoint = DeviceEndpoint(host = host, port = port, transport = transport)
+        _error.value = null
         val manager = getSystemService(MediaProjectionManager::class.java)
         val mediaProjection = manager.getMediaProjection(resultCode, resultData)
         projection = mediaProjection
@@ -120,7 +130,7 @@ class AudioRelayService : Service() {
                     stopSelf()
                 }
             },
-            null,
+            Handler(Looper.getMainLooper()),
         )
 
         val captureConfig = android.media.AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
@@ -161,13 +171,18 @@ class AudioRelayService : Service() {
 
         recorder = audioRecord
         audioRecord.startRecording()
-        _active.value = true
 
         relayJob = serviceScope.launch {
+            var failure: String? = null
             try {
                 stream(endpoint, audioRecord)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                failure = getString(R.string.audio_relay_failed)
             } finally {
                 cleanupRelay(cancelJob = false)
+                failure?.let { message -> _error.value = message }
                 stopSelf()
             }
         }
@@ -179,6 +194,7 @@ class AudioRelayService : Service() {
         audioRecord: AudioRecord,
     ) {
         val sessionId = startSession(endpoint)
+        _active.value = true
         try {
             val samples = FloatArray(CHUNK_SAMPLES)
             val payload = ByteArray(CHUNK_BYTES)
@@ -284,6 +300,7 @@ class AudioRelayService : Service() {
     }
 
     private fun stopRelay() {
+        _error.value = null
         cleanupRelay(cancelJob = true)
     }
 
@@ -350,14 +367,14 @@ class AudioRelayService : Service() {
 
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
-            .setContentTitle("ProAudio Player")
-            .setContentText("Передавання аудіо на плеєр")
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(getString(R.string.audio_relay_notification_text))
             .setContentIntent(activityIntent)
             .setOngoing(true)
             .addAction(
                 Notification.Action.Builder(
                     null,
-                    "Зупинити",
+                    getString(R.string.audio_relay_stop),
                     stopPendingIntent,
                 ).build(),
             )
@@ -369,7 +386,7 @@ class AudioRelayService : Service() {
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "Передавання аудіо",
+                getString(R.string.audio_relay_channel_name),
                 NotificationManager.IMPORTANCE_LOW,
             ),
         )
@@ -407,6 +424,9 @@ class AudioRelayService : Service() {
 
         private val _active = MutableStateFlow(false)
         val active: StateFlow<Boolean> = _active
+
+        private val _error = MutableStateFlow<String?>(null)
+        val error: StateFlow<String?> = _error
 
         fun start(
             context: Context,

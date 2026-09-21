@@ -15,6 +15,7 @@ import com.bodzey.proaudioplayer.core.api.MixerState
 import com.bodzey.proaudioplayer.core.api.MixerTarget
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
+import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
 import com.bodzey.proaudioplayer.core.api.QueueItem
 import com.bodzey.proaudioplayer.core.api.RadioStation
@@ -75,6 +76,7 @@ class OkHttpPlayerApiClient(
 
     override suspend fun status(endpoint: DeviceEndpoint): PlayerStatus =
         parser.status(get(endpoint, "/api/v1/status"))
+            .resolveArtwork(endpoint)
 
     override suspend fun playerAction(
         endpoint: DeviceEndpoint,
@@ -333,7 +335,9 @@ class OkHttpPlayerApiClient(
             endpoint = endpoint,
             path = "/api/v1/events",
             eventName = "status",
-            parse = parser::status,
+            parse = { payload ->
+                parser.status(payload).resolveArtwork(endpoint)
+            },
         )
 
     override fun meterEvents(
@@ -501,6 +505,18 @@ class OkHttpPlayerApiClient(
 
     private fun String.toJsonRequestBody() =
         toRequestBody("application/json; charset=utf-8".toMediaType())
+
+    private fun PlayerStatus.resolveArtwork(
+        endpoint: DeviceEndpoint,
+    ): PlayerStatus = copy(
+        player = player.resolveArtwork(endpoint),
+    )
+
+    private fun PlayerState.resolveArtwork(
+        endpoint: DeviceEndpoint,
+    ): PlayerState = copy(
+        artUrl = endpoint.resolveHttpUrl(artUrl),
+    )
 
     private fun providerUpdateJson(update: AlertProviderUpdate): String =
         buildJsonObject {

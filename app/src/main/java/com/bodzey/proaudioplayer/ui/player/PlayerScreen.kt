@@ -62,6 +62,7 @@ import com.bodzey.proaudioplayer.core.api.AudioOutputDescriptor
 import com.bodzey.proaudioplayer.core.api.MixerTarget
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerControls
+import com.bodzey.proaudioplayer.core.api.PlayerFeature
 import com.bodzey.proaudioplayer.core.api.PlayerState
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
@@ -429,7 +430,7 @@ private fun ConnectedState(
                 }
             }
 
-            if ("network_audio_ingest" in state.capabilities.features) {
+            if (PlayerFeature.NETWORK_AUDIO_INGEST in state.capabilities.features) {
                 NetworkAudioRelayCard(
                     active = audioRelayActive,
                     error = audioRelayError,
@@ -443,7 +444,7 @@ private fun ConnectedState(
                 source = meterSource,
             )
 
-            if ("audio_mixer" in state.capabilities.features) {
+            if (PlayerFeature.AUDIO_MIXER in state.capabilities.features) {
                 LogicalMixerCard(
                     state = mixerState,
                     blocked = state.status.priority.blocking,
@@ -461,7 +462,7 @@ private fun ConnectedState(
                 onMuteChange = onMasterMuteChange,
             )
 
-            if ("audio_outputs" in state.capabilities.features) {
+            if (PlayerFeature.AUDIO_OUTPUTS in state.capabilities.features) {
                 AudioOutputCard(
                     state = outputState,
                     blocked = state.status.priority.blocking,

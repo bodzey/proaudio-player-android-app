@@ -13,6 +13,7 @@ import com.bodzey.proaudioplayer.core.api.AlertProviderTestResult
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.api.PlayerAction
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
+import com.bodzey.proaudioplayer.core.api.PlayerFeature
 import com.bodzey.proaudioplayer.core.api.QueueItem
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.device.AvailableDevice
@@ -111,7 +112,7 @@ class PlayerSessionRepository(
             "Master volume must be between 0 and 100"
         }
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "audio_mixer")
+        requireFeature(connected, PlayerFeature.AUDIO_MIXER)
         apiClient.setMasterVolume(
             endpoint = connected.endpoint,
             percent = percent,
@@ -123,7 +124,7 @@ class PlayerSessionRepository(
         muted: Boolean,
     ) {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "audio_mixer")
+        requireFeature(connected, PlayerFeature.AUDIO_MIXER)
         val db = connected.status.master.db
             ?: throw ApiCompatibilityException("Player status does not expose master dB")
         apiClient.setMasterMute(
@@ -145,7 +146,7 @@ class PlayerSessionRepository(
         url: String,
     ) {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "network_streams")
+        requireFeature(connected, PlayerFeature.NETWORK_STREAMS)
         apiClient.playStream(
             endpoint = connected.endpoint,
             url = url,
@@ -163,7 +164,7 @@ class PlayerSessionRepository(
         expectedDeviceId: DeviceId,
     ): MixerState {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "audio_mixer")
+        requireFeature(connected, PlayerFeature.AUDIO_MIXER)
         return apiClient.mixer(connected.endpoint)
     }
 
@@ -177,7 +178,7 @@ class PlayerSessionRepository(
             "Mixer level must be in -60..0 dB"
         }
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "audio_mixer")
+        requireFeature(connected, PlayerFeature.AUDIO_MIXER)
         return apiClient.setMixer(
             endpoint = connected.endpoint,
             target = target,
@@ -190,7 +191,7 @@ class PlayerSessionRepository(
         expectedDeviceId: DeviceId,
     ): List<AudioOutputDescriptor> {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "audio_outputs")
+        requireFeature(connected, PlayerFeature.AUDIO_OUTPUTS)
         return apiClient.audioOutputs(connected.endpoint)
     }
 
@@ -202,7 +203,7 @@ class PlayerSessionRepository(
             "Audio output ID must not be blank"
         }
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "audio_outputs")
+        requireFeature(connected, PlayerFeature.AUDIO_OUTPUTS)
         return apiClient.selectAudioOutput(
             endpoint = connected.endpoint,
             id = id,
@@ -213,13 +214,13 @@ class PlayerSessionRepository(
         expectedDeviceId: DeviceId,
     ): List<String> {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "library")
+        requireFeature(connected, PlayerFeature.LIBRARY)
         return apiClient.library(connected.endpoint)
     }
 
     suspend fun refreshLibrary(expectedDeviceId: DeviceId) {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "library")
+        requireFeature(connected, PlayerFeature.LIBRARY)
         apiClient.refreshLibrary(connected.endpoint)
     }
 
@@ -228,7 +229,7 @@ class PlayerSessionRepository(
         path: String,
     ) {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "library")
+        requireFeature(connected, PlayerFeature.LIBRARY)
         apiClient.playLibraryPath(
             endpoint = connected.endpoint,
             path = path,
@@ -239,7 +240,7 @@ class PlayerSessionRepository(
         expectedDeviceId: DeviceId,
     ): List<String> {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "playlists")
+        requireFeature(connected, PlayerFeature.PLAYLISTS)
         return apiClient.playlists(connected.endpoint)
     }
 
@@ -248,7 +249,7 @@ class PlayerSessionRepository(
         name: String,
     ) {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "playlists")
+        requireFeature(connected, PlayerFeature.PLAYLISTS)
         apiClient.loadPlaylist(
             endpoint = connected.endpoint,
             name = name,
@@ -259,7 +260,7 @@ class PlayerSessionRepository(
         expectedDeviceId: DeviceId,
     ): List<QueueItem> {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "queue")
+        requireFeature(connected, PlayerFeature.QUEUE)
         return apiClient.queue(connected.endpoint)
     }
 
@@ -271,7 +272,7 @@ class PlayerSessionRepository(
             "Queue position must be positive"
         }
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "queue")
+        requireFeature(connected, PlayerFeature.QUEUE)
         apiClient.playQueueItem(
             endpoint = connected.endpoint,
             position = position,
@@ -286,7 +287,7 @@ class PlayerSessionRepository(
             "Queue position must be positive"
         }
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "queue")
+        requireFeature(connected, PlayerFeature.QUEUE)
         apiClient.removeQueueItem(
             endpoint = connected.endpoint,
             position = position,
@@ -295,7 +296,7 @@ class PlayerSessionRepository(
 
     suspend fun clearQueue(expectedDeviceId: DeviceId) {
         val connected = connectedState(expectedDeviceId)
-        requireFeature(connected, "queue")
+        requireFeature(connected, PlayerFeature.QUEUE)
         apiClient.clearQueue(connected.endpoint)
     }
 
@@ -505,7 +506,7 @@ class PlayerSessionRepository(
                     ", expected v" + expectedApiMajorVersion,
             )
         }
-        if ("status" !in capabilities.features) {
+        if (PlayerFeature.STATUS !in capabilities.features) {
             throw ApiCompatibilityException("Player API does not advertise status support")
         }
     }

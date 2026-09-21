@@ -1,6 +1,7 @@
 package com.bodzey.proaudioplayer.core.meter
 
 import com.bodzey.proaudioplayer.core.api.PlayerApiClient
+import com.bodzey.proaudioplayer.core.api.PlayerFeature
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
@@ -62,7 +63,7 @@ class MeterRepository(
     ): MeterConnection? {
         val connected = session as? PlayerSessionState.Connected
             ?: return null
-        if ("meters" !in connected.capabilities.features) {
+        if (PlayerFeature.METERS !in connected.capabilities.features) {
             return null
         }
         return MeterConnection(

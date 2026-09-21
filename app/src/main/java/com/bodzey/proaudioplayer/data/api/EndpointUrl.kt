@@ -20,3 +20,11 @@ internal fun DeviceEndpoint.apiUrl(path: String): HttpUrl {
 
     return (scheme + "://" + urlHost + ":" + port + path).toHttpUrl()
 }
+
+internal fun DeviceEndpoint.resolveHttpUrl(value: String?): String? {
+    val candidate = value?.trim()?.takeIf(String::isNotEmpty) ?: return null
+    val resolved = apiUrl("/").resolve(candidate) ?: return null
+    return resolved
+        .takeIf { url -> url.scheme == "http" || url.scheme == "https" }
+        ?.toString()
+}

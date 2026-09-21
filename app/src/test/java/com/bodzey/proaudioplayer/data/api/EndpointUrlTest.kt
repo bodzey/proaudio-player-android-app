@@ -2,6 +2,7 @@ package com.bodzey.proaudioplayer.data.api
 
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class EndpointUrlTest {
@@ -30,5 +31,32 @@ class EndpointUrlTest {
             "http://[2001:db8::10]:5371/api/v1/health",
             endpoint.apiUrl("/api/v1/health").toString(),
         )
+    }
+
+    @Test
+    fun relativeResourceResolvesAgainstPlayerOrigin() {
+        val endpoint = DeviceEndpoint(host = "192.168.88.50", port = 5371)
+
+        assertEquals(
+            "http://192.168.88.50:5371/assets/cover.jpg",
+            endpoint.resolveHttpUrl("/assets/cover.jpg"),
+        )
+    }
+
+    @Test
+    fun absoluteHttpsResourceIsPreserved() {
+        val endpoint = DeviceEndpoint(host = "192.168.88.50", port = 5371)
+
+        assertEquals(
+            "https://i.scdn.co/image/cover",
+            endpoint.resolveHttpUrl("https://i.scdn.co/image/cover"),
+        )
+    }
+
+    @Test
+    fun unsupportedResourceSchemeIsRejected() {
+        val endpoint = DeviceEndpoint(host = "192.168.88.50", port = 5371)
+
+        assertNull(endpoint.resolveHttpUrl("file:///tmp/cover.jpg"))
     }
 }

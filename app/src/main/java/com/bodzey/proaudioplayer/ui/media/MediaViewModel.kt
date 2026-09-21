@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.bodzey.proaudioplayer.core.api.PlayerFeature
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
@@ -66,21 +67,21 @@ class MediaViewModel(
             val features = connected.capabilities.features
             val result = supervisorScope {
                 val library = async {
-                    if ("library" in features) {
+                    if (PlayerFeature.LIBRARY in features) {
                         capture { sessionRepository.library(deviceId) }
                     } else {
                         Result.success(emptyList())
                     }
                 }
                 val playlists = async {
-                    if ("playlists" in features) {
+                    if (PlayerFeature.PLAYLISTS in features) {
                         capture { sessionRepository.playlists(deviceId) }
                     } else {
                         Result.success(emptyList())
                     }
                 }
                 val queue = async {
-                    if ("queue" in features) {
+                    if (PlayerFeature.QUEUE in features) {
                         capture { sessionRepository.queue(deviceId) }
                     } else {
                         Result.success(emptyList())

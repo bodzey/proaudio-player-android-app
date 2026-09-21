@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ProAudio Player</string>
+    <string name="audio_relay_channel_name">Передавання аудіо</string>
+    <string name="audio_relay_notification_text">Передавання аудіо на плеєр</string>
+    <string name="audio_relay_stop">Зупинити</string>
+    <string name="audio_relay_failed">Передавання аудіо перервано через помилку з’єднання</string>
 
     <string name="devices_title">Оберіть плеєр</string>
     <string name="devices_subtitle">ProAudio Player у локальній мережі та останні відомі пристрої</string>

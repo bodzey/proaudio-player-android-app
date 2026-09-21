@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bodzey.proaudioplayer.audio.AudioRelayService
+import com.bodzey.proaudioplayer.core.api.PlayerFeature
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
 import com.bodzey.proaudioplayer.ui.alerts.AlertsViewModel
 import com.bodzey.proaudioplayer.ui.devices.DevicesScreen
@@ -44,6 +45,7 @@ fun ProAudioPlayerApp(
     val selectedDeviceId = playerViewModel.selectedDeviceId.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val relayActive = AudioRelayService.active.collectAsStateWithLifecycle()
+    val relayServiceError = AudioRelayService.error.collectAsStateWithLifecycle()
     var pendingRelayEndpoint by remember { mutableStateOf<DeviceEndpoint?>(null) }
     var relayError by remember { mutableStateOf<String?>(null) }
 
@@ -154,12 +156,12 @@ fun ProAudioPlayerApp(
         ) {
             when {
                 section.value == AppSection.Player && connectedState != null -> {
-                    if ("audio_outputs" in connectedState.capabilities.features) {
+                    if (PlayerFeature.AUDIO_OUTPUTS in connectedState.capabilities.features) {
                         outputViewModel.ensureLoaded(
                             force = audioTopologyRevision != null,
                         )
                     }
-                    if ("audio_mixer" in connectedState.capabilities.features) {
+                    if (PlayerFeature.AUDIO_MIXER in connectedState.capabilities.features) {
                         mixerViewModel.ensureLoaded()
                     }
                 }
@@ -176,7 +178,7 @@ fun ProAudioPlayerApp(
             state = sessionState.value,
             section = section.value,
             audioRelayActive = relayActive.value,
-            audioRelayError = relayError,
+            audioRelayError = relayError ?: relayServiceError.value,
             pendingAction = pendingAction.value,
             masterMuteBusy = masterMuteBusy.value,
             masterVolumeOverride = masterVolumeOverride.value,

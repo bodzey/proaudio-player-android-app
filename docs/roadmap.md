@@ -105,8 +105,11 @@ Required:
 - trust reset/device replacement flow.
 
 Until then:
-- debug may use development HTTP;
-- release cleartext remains disabled.
+- local installations use HTTP because the native API does not yet expose an
+  agreed TLS and pairing contract;
+- the application does not transmit credentials or invent client-only
+  authentication;
+- authenticated TLS remains a production-release blocker.
 
 ## Phase 8 — Production
 

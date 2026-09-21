@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bodzey.proaudioplayer.R
+import com.bodzey.proaudioplayer.core.api.PlayerFeature
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.session.PlayerSessionState
 import com.bodzey.proaudioplayer.ui.components.ProAudioPanel
@@ -63,7 +64,7 @@ fun LazyListScope.radioSection(
 ) {
     val activeUrl = activeRadioStreamUrl(connected.status)
     val blocked = connected.status.priority.blocking
-    val streamsSupported = "network_streams" in connected.capabilities.features
+    val streamsSupported = PlayerFeature.NETWORK_STREAMS in connected.capabilities.features
     val interactionEnabled = streamsSupported && !blocked && state.pendingUrl == null
 
     item(key = "radio-header") {

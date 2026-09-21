@@ -107,7 +107,7 @@ fun ProAudioShell(
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .widthIn(max = 840.dp)
+                    .widthIn(max = 1200.dp)
                     .fillMaxWidth(),
             ) {
                 content()

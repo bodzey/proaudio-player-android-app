@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.bodzey.proaudioplayer.core.api.NetworkStreamValidator
+import com.bodzey.proaudioplayer.core.api.PlayerFeature
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
@@ -185,7 +186,7 @@ class RadioViewModel(
             )
             return false
         }
-        if ("network_streams" !in connected.capabilities.features) {
+        if (PlayerFeature.NETWORK_STREAMS !in connected.capabilities.features) {
             _uiState.value = _uiState.value.copy(
                 feedback = RadioFeedback(
                     message = "Цей плеєр не підтримує мережеві потоки",

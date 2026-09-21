@@ -59,7 +59,7 @@ class OkHttpPlayerApiClientTest {
                         """
                         : keepalive
                         event: status
-                        data: {"name":"ProAudio Player","volume":50.0,"muted":false,"player":{"source":"DLNA / UPnP","backend":"dlna-upnp","state":"playing","title":"Track","artist":"","album":"","position_seconds":null,"duration_seconds":null,"progress":0,"controls":{"play":false,"pause":true,"stop":true,"next":false,"prev":false}}}
+                        data: {"name":"ProAudio Player","volume":50.0,"muted":false,"player":{"source":"DLNA / UPnP","backend":"dlna-upnp","state":"playing","title":"Track","artist":"","album":"","art_url":"/assets/cover.jpg","position_seconds":null,"duration_seconds":null,"progress":0,"controls":{"play":false,"pause":true,"stop":true,"next":false,"prev":false}}}
 
                         """.trimIndent(),
                     )
@@ -81,11 +81,16 @@ class OkHttpPlayerApiClientTest {
             assertEquals("DLNA / UPnP", status.player.source)
             assertEquals("Track", status.player.title)
             assertEquals(
+                server.url("/assets/cover.jpg").toString(),
+                status.player.artUrl,
+            )
+            assertEquals(
                 "GET /api/v1/events HTTP/1.1",
                 server.takeRequest().requestLine,
             )
         }
     }
+
     @Test
     fun playerActionPostsNativeControlContract() {
         MockWebServer().use { server ->
