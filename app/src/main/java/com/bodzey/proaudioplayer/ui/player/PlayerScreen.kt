@@ -592,7 +592,7 @@ private fun SourceRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(colors.canvasInset, RoundedCornerShape(10.dp))
+            .background(colors.surfaceInset, RoundedCornerShape(10.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
