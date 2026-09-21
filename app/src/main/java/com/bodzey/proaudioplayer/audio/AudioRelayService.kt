@@ -1,5 +1,6 @@
 package com.bodzey.proaudioplayer.audio
 
+import android.Manifest
 import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
@@ -8,6 +9,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -145,6 +147,12 @@ class AudioRelayService : Service() {
             .setSampleRate(SAMPLE_RATE)
             .setChannelMask(AudioFormat.CHANNEL_IN_STEREO)
             .build()
+
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            throw SecurityException("RECORD_AUDIO permission is required")
+        }
 
         val minBufferBytes = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
