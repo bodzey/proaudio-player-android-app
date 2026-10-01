@@ -20,14 +20,9 @@ import com.bodzey.proaudioplayer.core.api.PlayerStatus
 import com.bodzey.proaudioplayer.core.api.QueueItem
 import com.bodzey.proaudioplayer.core.api.RadioStation
 import com.bodzey.proaudioplayer.core.model.DeviceEndpoint
-import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
@@ -52,10 +47,7 @@ class OkHttpPlayerApiClient(
         isLenient = false
     }
 
-    private val eventClient: OkHttpClient = client.newBuilder()
-        .readTimeout(0, TimeUnit.MILLISECONDS)
-        .callTimeout(0, TimeUnit.MILLISECONDS)
-        .build()
+    private val eventStream = PlayerEventStream(client, ::apiErrorMessage)
 
     private val providerTestClient: OkHttpClient = client.newBuilder()
         .readTimeout(125, TimeUnit.SECONDS)
@@ -331,7 +323,7 @@ class OkHttpPlayerApiClient(
     override fun statusEvents(
         endpoint: DeviceEndpoint,
     ): Flow<PlayerStatus> =
-        sseEvents(
+        eventStream.events(
             endpoint = endpoint,
             path = "/api/v1/events",
             eventName = "status",
@@ -343,78 +335,12 @@ class OkHttpPlayerApiClient(
     override fun meterEvents(
         endpoint: DeviceEndpoint,
     ): Flow<MeterFrame> =
-        sseEvents(
+        eventStream.events(
             endpoint = endpoint,
             path = "/api/v1/meters",
             eventName = "meter",
             parse = parser::meterFrame,
         )
-
-    private fun <T> sseEvents(
-        endpoint: DeviceEndpoint,
-        path: String,
-        eventName: String,
-        parse: (String) -> T,
-    ): Flow<T> = channelFlow {
-        val request = Request.Builder()
-            .url(endpoint.apiUrl(path))
-            .header("Accept", "text/event-stream")
-            .header("Cache-Control", "no-cache")
-            .build()
-        val call = eventClient.newCall(request)
-
-        val reader = launch(Dispatchers.IO) {
-            try {
-                call.execute().use { response ->
-                    if (!response.isSuccessful) {
-                        throw PlayerApiException(
-                            statusCode = response.code,
-                            message = apiErrorMessage(
-                                statusCode = response.code,
-                                body = response.body.string(),
-                            ),
-                        )
-                    }
-
-                    val source = response.body.source()
-                    var currentEvent: String? = null
-                    val dataLines = mutableListOf<String>()
-
-                    suspend fun dispatchEvent() {
-                        if (currentEvent == eventName && dataLines.isNotEmpty()) {
-                            send(parse(dataLines.joinToString("\n")))
-                        }
-                        currentEvent = null
-                        dataLines.clear()
-                    }
-
-                    while (!source.exhausted()) {
-                        val line = source.readUtf8Line() ?: break
-                        when {
-                            line.isEmpty() -> dispatchEvent()
-                            line.startsWith(":") -> Unit
-                            line.startsWith("event:") ->
-                                currentEvent = line.substringAfter(':').trimStart()
-                            line.startsWith("data:") ->
-                                dataLines += line.substringAfter(':').trimStart()
-                        }
-                    }
-
-                    dispatchEvent()
-                }
-                close()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Throwable) {
-                close(error)
-            }
-        }
-
-        awaitClose {
-            call.cancel()
-            reader.cancel()
-        }
-    }
 
     private suspend fun postJson(
         endpoint: DeviceEndpoint,
@@ -589,9 +515,3 @@ class OkHttpPlayerApiClient(
                 .build()
     }
 }
-
-class PlayerApiException(
-    val statusCode: Int,
-    message: String,
-    cause: IOException? = null,
-) : IOException(message, cause)
