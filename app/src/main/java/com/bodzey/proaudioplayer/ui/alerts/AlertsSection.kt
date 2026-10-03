@@ -10,6 +10,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -21,24 +26,18 @@ import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
 
 fun LazyListScope.alertsSection(
     state: AlertsUiState,
+    page: SettingsPage,
     connected: PlayerSessionState.Connected,
+    onPageSelected: (SettingsPage) -> Unit,
     onRefresh: () -> Unit,
     onProviderFormChange: (AlertProviderForm) -> Unit,
-    onProviderTest: () -> Unit,
-    onProviderSave: () -> Unit,
     onAudioFormChange: (AlertAudioForm) -> Unit,
-    onAudioSave: () -> Unit,
     onPickMedia: (String) -> Unit,
     onResetMedia: (String) -> Unit,
     onResetAllMedia: () -> Unit,
 ) {
-    item(key = "alerts-status") {
-        AlertStatusCard(
-            priority = connected.status.priority,
-            audio = state.audio,
-            loading = state.loading,
-            onRefresh = onRefresh,
-        )
+    item(key = "settings-heading") {
+        SettingsHeader(page = page, onBack = { onPageSelected(SettingsPage.Overview) })
     }
 
     state.loadError?.let { error ->
@@ -50,7 +49,7 @@ fun LazyListScope.alertsSection(
         }
     }
 
-    if (state.providerDirty || state.audioDirty) {
+    if (page == SettingsPage.Overview && (state.providerDirty || state.audioDirty)) {
         item(key = "alerts-drafts") {
             AlertNotice(
                 text = stringResource(R.string.alerts_drafts_retained),
@@ -69,40 +68,43 @@ fun LazyListScope.alertsSection(
         }
     }
 
+    if (page == SettingsPage.Overview) {
+        item(key = "settings-overview") {
+            SettingsOverview(state = state, onSelected = onPageSelected)
+        }
+        item(key = "settings-diagnostics") {
+            SettingsDiagnostics(state = state, connected = connected, onRefresh = onRefresh)
+        }
+    }
+
     val provider = state.provider
     val providerForm = state.providerForm
-    if (provider != null && providerForm != null) {
+    if (page == SettingsPage.Provider && provider != null && providerForm != null) {
         item(key = "alerts-provider") {
             ProviderSettingsCard(
                 settings = provider,
                 form = providerForm,
-                dirty = state.providerDirty,
                 message = state.providerMessage,
                 busyAction = state.busyAction,
                 onFormChange = onProviderFormChange,
-                onTest = onProviderTest,
-                onSave = onProviderSave,
             )
         }
     }
 
-    val audio = state.audio
     val audioForm = state.audioForm
-    if (audio != null && audioForm != null) {
+    if ((page == SettingsPage.Announcements || page == SettingsPage.Schedule) && audioForm != null) {
         item(key = "alerts-audio") {
             AudioSettingsCard(
-                settings = audio,
+                page = page,
                 form = audioForm,
-                dirty = state.audioDirty,
                 message = state.audioMessage,
                 busyAction = state.busyAction,
                 onFormChange = onAudioFormChange,
-                onSave = onAudioSave,
             )
         }
     }
 
-    state.media?.let { media ->
+    state.media?.takeIf { page == SettingsPage.Media }?.let { media ->
         item(key = "alerts-media") {
             AlertMediaSection(
                 media = media,
@@ -112,6 +114,32 @@ fun LazyListScope.alertsSection(
                 onResetMedia = onResetMedia,
                 onResetAll = onResetAllMedia,
             )
+        }
+    }
+}
+
+@Composable
+private fun SettingsDiagnostics(
+    state: AlertsUiState,
+    connected: PlayerSessionState.Connected,
+    onRefresh: () -> Unit,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    androidx.compose.foundation.layout.Column {
+        TextButton(onClick = { expanded = !expanded }) {
+            Text(stringResource(if (expanded) R.string.settings_diagnostics_hide else R.string.settings_diagnostics))
+        }
+        if (expanded) {
+            AlertStatusCard(
+                priority = connected.status.priority,
+                audio = state.audio,
+                loading = state.loading,
+                onRefresh = onRefresh,
+            )
+        } else if (state.loadError != null) {
+            TextButton(onClick = onRefresh, enabled = !state.loading) {
+                Text(stringResource(R.string.alerts_refresh))
+            }
         }
     }
 }

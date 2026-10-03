@@ -69,7 +69,7 @@ fun PrimaryNavigation(
             contentDescription = if (alertActive) {
                 stringResource(R.string.nav_alerts_active)
             } else {
-                alertsLabel
+                stringResource(R.string.settings_title)
             },
             selected = selected == AppSection.Alerts,
             onClick = { onSelected(AppSection.Alerts) },

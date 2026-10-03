@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -78,6 +80,9 @@ import com.bodzey.proaudioplayer.ui.AppSection
 import com.bodzey.proaudioplayer.ui.alerts.AlertAudioForm
 import com.bodzey.proaudioplayer.ui.alerts.AlertProviderForm
 import com.bodzey.proaudioplayer.ui.alerts.AlertsUiState
+import com.bodzey.proaudioplayer.ui.alerts.SettingsPage
+import com.bodzey.proaudioplayer.ui.alerts.SettingsSaveBar
+import com.bodzey.proaudioplayer.ui.alerts.settingsPageForAudioField
 import com.bodzey.proaudioplayer.ui.alerts.alertsSection
 import com.bodzey.proaudioplayer.ui.components.PrimaryNavigation
 import com.bodzey.proaudioplayer.ui.components.ProAudioHeader
@@ -159,11 +164,23 @@ fun PlayerScreen(
     val mediaScroll = rememberLazyListState()
     val radioScroll = rememberLazyListState()
     val alertsScroll = rememberLazyListState()
+    var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.Overview) }
+    BackHandler(enabled = section == AppSection.Alerts && settingsPage != SettingsPage.Overview) {
+        settingsPage = SettingsPage.Overview
+    }
+    LaunchedEffect(settingsPage) {
+        if (section == AppSection.Alerts) alertsScroll.scrollToItem(3)
+    }
     val scrollState = when (section) {
         AppSection.Player -> playerScroll
         AppSection.Media -> mediaScroll
         AppSection.Radio -> radioScroll
         AppSection.Alerts -> alertsScroll
+    }
+    LaunchedEffect(alertsState.audioMessage) {
+        alertsState.audioMessage?.field?.let { field ->
+            if (section == AppSection.Alerts) settingsPage = settingsPageForAudioField(field)
+        }
     }
     var pendingAlertMediaKind by rememberSaveable {
         mutableStateOf<String?>(null)
@@ -179,171 +196,188 @@ fun PlayerScreen(
     }
 
     ProAudioShell {
-        LazyColumn(
-            state = scrollState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                top = 2.dp,
-                end = 16.dp,
-                bottom = 28.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item {
-                ProAudioHeader(
-                    trailing = {
-                        when (state) {
-                            is PlayerSessionState.Connected -> StatusBadge(
-                                text = stringResource(R.string.player_connected),
-                                state = StatusBadgeState.Online,
-                            )
-                            is PlayerSessionState.Connecting -> StatusBadge(
-                                text = stringResource(R.string.player_connecting_short),
-                                state = StatusBadgeState.Connecting,
-                            )
-                            is PlayerSessionState.Offline,
-                            is PlayerSessionState.Failed -> StatusBadge(
-                                text = stringResource(R.string.player_offline),
-                                state = StatusBadgeState.Offline,
-                            )
-                            PlayerSessionState.NoSelection -> Unit
-                        }
-                    },
-                )
-            }
-
-            item {
-                OutlinedButton(
-                    onClick = onBack,
+        Scaffold(
+            containerColor = Color.Transparent,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            bottomBar = {
+                if (state is PlayerSessionState.Connected && section == AppSection.Alerts &&
+                    settingsPage != SettingsPage.Overview && settingsPage != SettingsPage.Media
                 ) {
-                    Text(
-                        text = "‹  " + stringResource(R.string.back_to_players),
-                    )
-                }
-            }
-
-            stickyHeader(key = "primary-navigation") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(LocalProAudioColors.current.canvas)
-                        .padding(vertical = 8.dp),
-                ) {
-                    PrimaryNavigation(
-                        selected = section,
-                        onSelected = onSectionSelected,
-                        alertActive = (state as? PlayerSessionState.Connected)
-                            ?.status
-                            ?.priority
-                            ?.active == true,
-                    )
-                }
-            }
-
-            if (actionError != null) {
-                item {
-                    ActionError(message = actionError)
-                }
-            }
-
-            when {
-                state is PlayerSessionState.Connected && section == AppSection.Player -> {
-                    item(key = "player-section") {
-                        ConnectedState(
-                            state = state,
-                            audioRelayActive = audioRelayActive,
-                            audioRelayError = audioRelayError,
-                            pendingAction = pendingAction,
-                            masterMuteBusy = masterMuteBusy,
-                            masterVolumeOverride = masterVolumeOverride,
-                            meterSource = meterSource,
-                            playerTimeline = playerTimeline,
-                            mixerState = mixerState,
-                            outputState = outputState,
-                            onAction = onAction,
-                            onMasterVolumeChange = onMasterVolumeChange,
-                            onMasterMuteChange = onMasterMuteChange,
-                            onOutputRefresh = onOutputRefresh,
-                            onOutputSelect = onOutputSelect,
-                            onMixerRefresh = onMixerRefresh,
-                            onMixerLevelChange = onMixerLevelChange,
-                            onMixerMuteChange = onMixerMuteChange,
-                            onAudioRelayStart = onAudioRelayStart,
-                            onAudioRelayStop = onAudioRelayStop,
-                        )
-                    }
-                }
-
-                state is PlayerSessionState.Connected && section == AppSection.Media -> {
-                    mediaSection(
-                        state = mediaState,
-                        connected = state,
-                        onRefresh = onMediaRefresh,
-                        onRefreshLibrary = onMediaRefreshLibrary,
-                        onLibraryQueryChange = onMediaLibraryQueryChange,
-                        onPlayLibraryPath = onMediaPlayLibraryPath,
-                        onLoadPlaylist = onMediaLoadPlaylist,
-                        onPlayQueueItem = onMediaPlayQueueItem,
-                        onRemoveQueueItem = onMediaRemoveQueueItem,
-                        onClearQueue = onMediaClearQueue,
-                    )
-                }
-
-                state is PlayerSessionState.Connected && section == AppSection.Radio -> {
-                    radioSection(
-                        state = radioState,
-                        connected = state,
-                        onRefresh = onRadioRefresh,
-                        onStationToggle = onRadioStationToggle,
-                        onCustomUrlChange = onRadioCustomUrlChange,
-                        onQueryChange = onRadioQueryChange,
-                        onPlayCustom = onRadioPlayCustom,
-                    )
-                }
-
-                state is PlayerSessionState.Connected && section == AppSection.Alerts -> {
-                    alertsSection(
+                    SettingsSaveBar(
+                        page = settingsPage,
                         state = alertsState,
-                        connected = state,
-                        onRefresh = onAlertsRefresh,
-                        onProviderFormChange = onAlertProviderFormChange,
                         onProviderTest = onAlertProviderTest,
                         onProviderSave = onAlertProviderSave,
-                        onAudioFormChange = onAlertAudioFormChange,
                         onAudioSave = onAlertAudioSave,
-                        onPickMedia = { kind ->
-                            pendingAlertMediaKind = kind
-                            alertMediaPicker.launch(
-                                arrayOf("audio/mpeg", "audio/mp3"),
-                            )
+                    )
+                }
+            },
+        ) { innerPadding ->
+            LazyColumn(
+                state = scrollState,
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    top = 2.dp,
+                    end = 16.dp,
+                    bottom = 28.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    ProAudioHeader(
+                        trailing = {
+                            when (state) {
+                                is PlayerSessionState.Connected -> StatusBadge(
+                                    text = stringResource(R.string.player_connected),
+                                    state = StatusBadgeState.Online,
+                                )
+                                is PlayerSessionState.Connecting -> StatusBadge(
+                                    text = stringResource(R.string.player_connecting_short),
+                                    state = StatusBadgeState.Connecting,
+                                )
+                                is PlayerSessionState.Offline,
+                                is PlayerSessionState.Failed -> StatusBadge(
+                                    text = stringResource(R.string.player_offline),
+                                    state = StatusBadgeState.Offline,
+                                )
+                                PlayerSessionState.NoSelection -> Unit
+                            }
                         },
-                        onResetMedia = onAlertMediaReset,
-                        onResetAllMedia = onAlertMediaResetAll,
                     )
                 }
 
-                state is PlayerSessionState.Connecting -> {
-                    item(key = "connecting") {
-                        ConnectingState(state)
-                    }
-                }
-
-                state is PlayerSessionState.Offline -> {
-                    item(key = "offline") {
-                        MessageState(
-                            title = stringResource(R.string.player_offline),
-                            message = stringResource(R.string.player_offline_support),
+                item {
+                    OutlinedButton(
+                        onClick = onBack,
+                    ) {
+                        Text(
+                            text = "‹  " + stringResource(R.string.back_to_players),
                         )
                     }
                 }
 
-                state is PlayerSessionState.Failed -> {
-                    item(key = "failed") {
-                        MessageState(
-                            title = state.displayName,
-                            message = state.message,
+                stickyHeader(key = "primary-navigation") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(LocalProAudioColors.current.canvas)
+                            .padding(vertical = 8.dp),
+                    ) {
+                        PrimaryNavigation(
+                            selected = section,
+                            onSelected = onSectionSelected,
+                            alertActive = (state as? PlayerSessionState.Connected)
+                                ?.status
+                                ?.priority
+                                ?.active == true,
                         )
+                    }
+                }
+
+                if (actionError != null) {
+                    item {
+                        ActionError(message = actionError)
+                    }
+                }
+
+                when {
+                    state is PlayerSessionState.Connected && section == AppSection.Player -> {
+                        item(key = "player-section") {
+                            ConnectedState(
+                                state = state,
+                                audioRelayActive = audioRelayActive,
+                                audioRelayError = audioRelayError,
+                                pendingAction = pendingAction,
+                                masterMuteBusy = masterMuteBusy,
+                                masterVolumeOverride = masterVolumeOverride,
+                                meterSource = meterSource,
+                                playerTimeline = playerTimeline,
+                                mixerState = mixerState,
+                                outputState = outputState,
+                                onAction = onAction,
+                                onMasterVolumeChange = onMasterVolumeChange,
+                                onMasterMuteChange = onMasterMuteChange,
+                                onOutputRefresh = onOutputRefresh,
+                                onOutputSelect = onOutputSelect,
+                                onMixerRefresh = onMixerRefresh,
+                                onMixerLevelChange = onMixerLevelChange,
+                                onMixerMuteChange = onMixerMuteChange,
+                                onAudioRelayStart = onAudioRelayStart,
+                                onAudioRelayStop = onAudioRelayStop,
+                            )
+                        }
+                    }
+
+                    state is PlayerSessionState.Connected && section == AppSection.Media -> {
+                        mediaSection(
+                            state = mediaState,
+                            connected = state,
+                            onRefresh = onMediaRefresh,
+                            onRefreshLibrary = onMediaRefreshLibrary,
+                            onLibraryQueryChange = onMediaLibraryQueryChange,
+                            onPlayLibraryPath = onMediaPlayLibraryPath,
+                            onLoadPlaylist = onMediaLoadPlaylist,
+                            onPlayQueueItem = onMediaPlayQueueItem,
+                            onRemoveQueueItem = onMediaRemoveQueueItem,
+                            onClearQueue = onMediaClearQueue,
+                        )
+                    }
+
+                    state is PlayerSessionState.Connected && section == AppSection.Radio -> {
+                        radioSection(
+                            state = radioState,
+                            connected = state,
+                            onRefresh = onRadioRefresh,
+                            onStationToggle = onRadioStationToggle,
+                            onCustomUrlChange = onRadioCustomUrlChange,
+                            onQueryChange = onRadioQueryChange,
+                            onPlayCustom = onRadioPlayCustom,
+                        )
+                    }
+
+                    state is PlayerSessionState.Connected && section == AppSection.Alerts -> {
+                        alertsSection(
+                            state = alertsState,
+                            page = settingsPage,
+                            connected = state,
+                            onPageSelected = { settingsPage = it },
+                            onRefresh = onAlertsRefresh,
+                            onProviderFormChange = onAlertProviderFormChange,
+                            onAudioFormChange = onAlertAudioFormChange,
+                            onPickMedia = { kind ->
+                                pendingAlertMediaKind = kind
+                                alertMediaPicker.launch(
+                                    arrayOf("audio/mpeg", "audio/mp3"),
+                                )
+                            },
+                            onResetMedia = onAlertMediaReset,
+                            onResetAllMedia = onAlertMediaResetAll,
+                        )
+                    }
+
+                    state is PlayerSessionState.Connecting -> {
+                        item(key = "connecting") {
+                            ConnectingState(state)
+                        }
+                    }
+
+                    state is PlayerSessionState.Offline -> {
+                        item(key = "offline") {
+                            MessageState(
+                                title = stringResource(R.string.player_offline),
+                                message = stringResource(R.string.player_offline_support),
+                            )
+                        }
+                    }
+
+                    state is PlayerSessionState.Failed -> {
+                        item(key = "failed") {
+                            MessageState(
+                                title = state.displayName,
+                                message = state.message,
+                            )
+                        }
                     }
                 }
             }

@@ -2,24 +2,19 @@ package com.bodzey.proaudioplayer.ui.alerts
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import com.bodzey.proaudioplayer.R
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
 import com.bodzey.proaudioplayer.ui.components.ProAudioPanel
-import com.bodzey.proaudioplayer.ui.components.SectionLabel
 import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,72 +35,36 @@ import com.bodzey.proaudioplayer.ui.theme.LocalProAudioColors
 internal fun ProviderSettingsCard(
     settings: AlertProviderSettings,
     form: AlertProviderForm,
-    dirty: Boolean,
     message: AlertsMessage?,
     busyAction: AlertsBusyAction?,
     onFormChange: (AlertProviderForm) -> Unit,
-    onTest: () -> Unit,
-    onSave: () -> Unit,
 ) {
     val colors = LocalProAudioColors.current
-    val busy = busyAction is AlertsBusyAction.ProviderSave ||
-        busyAction is AlertsBusyAction.ProviderTest
+    val busy = busyAction != null
     var tokenVisible by rememberSaveable { mutableStateOf(false) }
     var advancedVisible by rememberSaveable { mutableStateOf(false) }
     var locationMenuExpanded by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(message) {
+        if (message?.isError == true) advancedVisible = true
+    }
 
     ProAudioPanel(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                ) {
-                    SectionLabel(text = stringResource(R.string.alerts_provider_eyebrow))
-                    Spacer(modifier = Modifier.height(5.dp))
-                    Text(
-                        text = stringResource(R.string.alerts_provider_title),
-                        color = colors.text,
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.alerts_provider_description),
-                        color = colors.textMuted,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-                Text(
-                    text = stringResource(
-                        if (settings.tokenConfigured) {
-                            R.string.alerts_token_configured
-                        } else {
-                            R.string.alerts_token_missing
-                        },
-                    ),
-                    color = if (settings.tokenConfigured) {
-                        colors.success
-                    } else {
-                        colors.warning
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
-
-            AlertTextField(
-                value = form.endpoint,
-                onValueChange = { value ->
-                    onFormChange(form.copy(endpoint = value))
-                },
-                label = stringResource(R.string.alerts_endpoint),
-                enabled = !busy,
-                supportingText = stringResource(R.string.alerts_endpoint_hint),
-                keyboardType = KeyboardType.Uri,
+            Text(
+                text = stringResource(R.string.alerts_provider_description),
+                color = colors.textMuted,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = stringResource(
+                    if (settings.tokenConfigured) R.string.alerts_token_configured else R.string.alerts_token_missing,
+                ),
+                color = if (settings.tokenConfigured) colors.success else colors.warning,
+                style = MaterialTheme.typography.labelMedium,
             )
 
             AlertTextField(
@@ -148,6 +106,7 @@ internal fun ProviderSettingsCard(
                 ) {
                     LOCATION_TYPES.forEach { value ->
                         DropdownMenuItem(
+                            enabled = !busy,
                             text = {
                                 Text(locationTypeLabel(value))
                             },
@@ -214,82 +173,41 @@ internal fun ProviderSettingsCard(
 
             if (advancedVisible) {
                 AlertTextField(
+                    value = form.endpoint,
+                    onValueChange = { onFormChange(form.copy(endpoint = it)) },
+                    label = stringResource(R.string.alerts_endpoint),
+                    enabled = !busy,
+                    supportingText = stringResource(R.string.alerts_endpoint_hint),
+                    keyboardType = KeyboardType.Uri,
+                )
+                AlertTextField(
                     value = form.pollIntervalSeconds,
-                    onValueChange = { value ->
-                        onFormChange(form.copy(pollIntervalSeconds = value))
-                    },
+                    onValueChange = { onFormChange(form.copy(pollIntervalSeconds = it)) },
                     label = stringResource(R.string.alerts_poll_interval),
                     enabled = !busy,
                     keyboardType = KeyboardType.Decimal,
                 )
                 AlertTextField(
                     value = form.requestTimeoutSeconds,
-                    onValueChange = { value ->
-                        onFormChange(form.copy(requestTimeoutSeconds = value))
-                    },
+                    onValueChange = { onFormChange(form.copy(requestTimeoutSeconds = it)) },
                     label = stringResource(R.string.alerts_request_timeout),
                     enabled = !busy,
                     keyboardType = KeyboardType.Decimal,
                 )
                 AlertTextField(
                     value = form.rateLimitBackoffSeconds,
-                    onValueChange = { value ->
-                        onFormChange(form.copy(rateLimitBackoffSeconds = value))
-                    },
+                    onValueChange = { onFormChange(form.copy(rateLimitBackoffSeconds = it)) },
                     label = stringResource(R.string.alerts_rate_limit_backoff),
                     enabled = !busy,
                     keyboardType = KeyboardType.Decimal,
                 )
                 AlertTextField(
                     value = form.clearConfirmations,
-                    onValueChange = { value ->
-                        onFormChange(form.copy(clearConfirmations = value))
-                    },
+                    onValueChange = { onFormChange(form.copy(clearConfirmations = it)) },
                     label = stringResource(R.string.alerts_clear_confirmations),
                     enabled = !busy,
                     keyboardType = KeyboardType.Number,
                 )
-            }
-
-            AlertsMessageView(
-                message = message,
-                dirty = dirty,
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                OutlinedButton(
-                    onClick = onTest,
-                    modifier = Modifier.weight(1f),
-                    enabled = !busy,
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (busyAction is AlertsBusyAction.ProviderTest) {
-                                R.string.alerts_testing_api
-                            } else {
-                                R.string.alerts_test_api
-                            },
-                        ),
-                    )
-                }
-                Button(
-                    onClick = onSave,
-                    modifier = Modifier.weight(1f),
-                    enabled = !busy && dirty,
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (busyAction is AlertsBusyAction.ProviderSave) {
-                                R.string.alerts_saving
-                            } else {
-                                R.string.alerts_save
-                            },
-                        ),
-                    )
-                }
             }
         }
     }

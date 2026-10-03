@@ -30,6 +30,7 @@ internal fun AlertTextField(
     supportingText: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     singleLine: Boolean = true,
+    isError: Boolean = false,
 ) {
     OutlinedTextField(
         value = value,
@@ -37,6 +38,7 @@ internal fun AlertTextField(
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
         singleLine = singleLine,
+        isError = isError,
         label = { Text(label) },
         supportingText = if (supportingText != null) {
             { Text(supportingText) }

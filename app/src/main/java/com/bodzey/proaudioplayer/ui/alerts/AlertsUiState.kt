@@ -36,6 +36,7 @@ data class AlertAudioForm(
 data class AlertsMessage(
     val text: String,
     val isError: Boolean,
+    val field: String? = null,
 )
 
 sealed interface AlertsBusyAction {

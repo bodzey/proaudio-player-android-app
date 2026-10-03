@@ -8,11 +8,10 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.bodzey.proaudioplayer.core.api.AlertAudioSettings
-import com.bodzey.proaudioplayer.core.api.AlertAudioUpdate
 import com.bodzey.proaudioplayer.core.api.AlertMediaCatalog
 import com.bodzey.proaudioplayer.core.api.AlertMediaFile
 import com.bodzey.proaudioplayer.core.api.AlertProviderSettings
-import com.bodzey.proaudioplayer.core.api.AlertSettingsValidator
+import com.bodzey.proaudioplayer.core.api.AlertSettingException
 import com.bodzey.proaudioplayer.core.api.AlertProviderUpdate
 import com.bodzey.proaudioplayer.core.model.DeviceId
 import com.bodzey.proaudioplayer.core.session.PlayerSessionRepository
@@ -243,6 +242,7 @@ class AlertsViewModel(
                 audioMessage = AlertsMessage(
                     text = error.message ?: "Некоректні параметри аудіо",
                     isError = true,
+                    field = (error as? AlertSettingException)?.field,
                 ),
             )
             return
@@ -448,6 +448,7 @@ class AlertsViewModel(
                 providerMessage = AlertsMessage(
                     text = error.message ?: "Некоректні параметри API",
                     isError = true,
+                    field = (error as? AlertSettingException)?.field,
                 ),
             )
             null
@@ -669,101 +670,9 @@ class AlertsViewModel(
     }
 }
 
-private fun AlertProviderSettings.toForm(): AlertProviderForm =
-    AlertProviderForm(
-        endpoint = endpoint,
-        locationUid = locationUid.toString(),
-        locationType = locationType,
-        pollIntervalSeconds = pollIntervalSeconds.cleanNumber(),
-        requestTimeoutSeconds = requestTimeoutSeconds.cleanNumber(),
-        rateLimitBackoffSeconds = rateLimitBackoffSeconds.cleanNumber(),
-        clearConfirmations = clearConfirmations.toString(),
-    )
-
-private fun AlertAudioSettings.toForm(): AlertAudioForm =
-    AlertAudioForm(
-        airRaidAlertsEnabled = airRaidAlertsEnabled,
-        minuteSilenceEnabled = minuteSilenceEnabled,
-        duckDb = duckDb.cleanNumber(),
-        duckFadeSeconds = duckFadeSeconds.cleanNumber(),
-        restoreFadeSeconds = restoreFadeSeconds.cleanNumber(),
-        alertVolumePercent = alertVolumePercent.cleanNumber(),
-        defaultRestoreVolumePercent = defaultRestoreVolumePercent.cleanNumber(),
-        minuteSilenceVolumePercent = minuteSilenceVolumePercent.cleanNumber(),
-        minuteSilenceStartTime = minuteSilenceStartTime,
-        minuteSilenceTimezone = minuteSilenceTimezone,
-        minuteSilenceCatchUpSeconds = minuteSilenceCatchUpSeconds.toString(),
-        minuteSilenceMusicFadeSeconds = minuteSilenceMusicFadeSeconds.cleanNumber(),
-        alertRepeatIntervalMinutes = alertRepeatIntervalMinutes.toString(),
-        duckOnlyDuringAnnouncement = duckOnlyDuringAnnouncement,
-    )
-
-private fun AlertProviderForm.toUpdate(): AlertProviderUpdate {
-    val update = AlertProviderUpdate(
-        endpoint = endpoint.trim(),
-        locationUid = locationUid.requiredLong("UID локації"),
-        locationType = locationType.trim(),
-        pollIntervalSeconds = pollIntervalSeconds.requiredDouble("Інтервал опитування"),
-        requestTimeoutSeconds = requestTimeoutSeconds.requiredDouble("Очікування відповіді"),
-        rateLimitBackoffSeconds =
-            rateLimitBackoffSeconds.requiredDouble("Пауза після HTTP 429"),
-        clearConfirmations = clearConfirmations.requiredInt("Підтвердження відбою"),
-        token = token.trim().takeIf { it.isNotEmpty() },
-    )
-    AlertSettingsValidator.validateProvider(update)
-    return update
-}
-
-private fun AlertAudioForm.toUpdate(): AlertAudioUpdate {
-    val update = AlertAudioUpdate(
-        airRaidAlertsEnabled = airRaidAlertsEnabled,
-        duckDb = duckDb.requiredDouble("Стишення музики"),
-        duckFadeSeconds = duckFadeSeconds.requiredDouble("Плавне стишення"),
-        restoreFadeSeconds = restoreFadeSeconds.requiredDouble("Час відновлення"),
-        alertVolumePercent = alertVolumePercent.requiredDouble("Гучність ALERT"),
-        defaultRestoreVolumePercent =
-            defaultRestoreVolumePercent.requiredDouble("Рівень відновлення"),
-        minuteSilenceVolumePercent =
-            minuteSilenceVolumePercent.requiredDouble("Гучність хвилини мовчання"),
-        minuteSilenceEnabled = minuteSilenceEnabled,
-        minuteSilenceStartTime = minuteSilenceStartTime.trim(),
-        minuteSilenceTimezone = minuteSilenceTimezone.trim(),
-        minuteSilenceCatchUpSeconds =
-            minuteSilenceCatchUpSeconds.requiredLong("Допустиме запізнення"),
-        minuteSilenceMusicFadeSeconds =
-            minuteSilenceMusicFadeSeconds.requiredDouble(
-                "Стишення перед хвилиною мовчання",
-            ),
-        alertRepeatIntervalMinutes =
-            alertRepeatIntervalMinutes.requiredLong("Повторення тривоги"),
-        duckOnlyDuringAnnouncement = duckOnlyDuringAnnouncement,
-    )
-    AlertSettingsValidator.validateAudio(update)
-    return update
-}
-
 private fun AlertMediaCatalog.replace(item: AlertMediaFile): AlertMediaCatalog =
     copy(
         items = items.map { current ->
             if (current.kind == item.kind) item else current
         },
     )
-
-private fun String.requiredDouble(label: String): Double =
-    trim().toDoubleOrNull()
-        ?: throw IllegalArgumentException("$label має містити число")
-
-private fun String.requiredLong(label: String): Long =
-    trim().toLongOrNull()
-        ?: throw IllegalArgumentException("$label має містити ціле число")
-
-private fun String.requiredInt(label: String): Int =
-    trim().toIntOrNull()
-        ?: throw IllegalArgumentException("$label має містити ціле число")
-
-private fun Double.cleanNumber(): String =
-    if (this % 1.0 == 0.0) {
-        toLong().toString()
-    } else {
-        toString()
-    }
