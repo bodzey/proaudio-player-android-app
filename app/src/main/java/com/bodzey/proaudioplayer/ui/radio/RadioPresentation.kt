@@ -1,6 +1,22 @@
 package com.bodzey.proaudioplayer.ui.radio
 
 import com.bodzey.proaudioplayer.core.api.PlayerStatus
+import com.bodzey.proaudioplayer.core.api.RadioStation
+import java.util.Locale
+
+fun filterRadioStations(
+    stations: List<RadioStation>,
+    query: String,
+): List<RadioStation> {
+    val words = query.trim().lowercase(Locale.ROOT).split(Regex("\\s+"))
+        .filter(String::isNotEmpty)
+    if (words.isEmpty()) return stations
+    return stations.filter { station ->
+        val text = (station.name + " " + station.tags.joinToString(" "))
+            .lowercase(Locale.ROOT)
+        words.all { word -> text.contains(word) }
+    }
+}
 
 fun activeRadioStreamUrl(status: PlayerStatus): String? =
     if (status.player.backend == "mpd" &&

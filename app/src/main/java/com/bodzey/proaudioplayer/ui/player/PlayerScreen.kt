@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,9 +50,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -96,6 +101,7 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlayerScreen(
     state: PlayerSessionState,
@@ -133,6 +139,7 @@ fun PlayerScreen(
     onRadioRefresh: () -> Unit,
     onRadioStationToggle: (RadioStation) -> Unit,
     onRadioCustomUrlChange: (String) -> Unit,
+    onRadioQueryChange: (String) -> Unit,
     onRadioPlayCustom: () -> Unit,
     onAlertsRefresh: () -> Unit,
     onAlertProviderFormChange: (AlertProviderForm) -> Unit,
@@ -148,6 +155,16 @@ fun PlayerScreen(
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
+    val playerScroll = rememberLazyListState()
+    val mediaScroll = rememberLazyListState()
+    val radioScroll = rememberLazyListState()
+    val alertsScroll = rememberLazyListState()
+    val scrollState = when (section) {
+        AppSection.Player -> playerScroll
+        AppSection.Media -> mediaScroll
+        AppSection.Radio -> radioScroll
+        AppSection.Alerts -> alertsScroll
+    }
     var pendingAlertMediaKind by rememberSaveable {
         mutableStateOf<String?>(null)
     }
@@ -163,6 +180,7 @@ fun PlayerScreen(
 
     ProAudioShell {
         LazyColumn(
+            state = scrollState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 16.dp,
@@ -205,15 +223,22 @@ fun PlayerScreen(
                 }
             }
 
-            item {
-                PrimaryNavigation(
-                    selected = section,
-                    onSelected = onSectionSelected,
-                    alertActive = (state as? PlayerSessionState.Connected)
-                        ?.status
-                        ?.priority
-                        ?.active == true,
-                )
+            stickyHeader(key = "primary-navigation") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(LocalProAudioColors.current.canvas)
+                        .padding(vertical = 8.dp),
+                ) {
+                    PrimaryNavigation(
+                        selected = section,
+                        onSelected = onSectionSelected,
+                        alertActive = (state as? PlayerSessionState.Connected)
+                            ?.status
+                            ?.priority
+                            ?.active == true,
+                    )
+                }
             }
 
             if (actionError != null) {
@@ -272,6 +297,7 @@ fun PlayerScreen(
                         onRefresh = onRadioRefresh,
                         onStationToggle = onRadioStationToggle,
                         onCustomUrlChange = onRadioCustomUrlChange,
+                        onQueryChange = onRadioQueryChange,
                         onPlayCustom = onRadioPlayCustom,
                     )
                 }
@@ -873,6 +899,7 @@ private fun TransportControls(
     onAction: (PlayerAction) -> Unit,
 ) {
     val playing = state == "playing"
+    val available = pendingAction == null
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
@@ -882,7 +909,7 @@ private fun TransportControls(
             label = stringResource(R.string.player_previous),
             type = TransportIcon.Previous,
             action = PlayerAction.Previous,
-            enabled = controls.previous,
+            enabled = controls.previous && available,
             pending = pendingAction == PlayerAction.Previous,
             onClick = onAction,
         )
@@ -891,7 +918,7 @@ private fun TransportControls(
             label = stringResource(R.string.player_stop),
             type = TransportIcon.Stop,
             action = PlayerAction.Stop,
-            enabled = controls.stop,
+            enabled = controls.stop && available,
             pending = pendingAction == PlayerAction.Stop,
             onClick = onAction,
         )
@@ -902,8 +929,8 @@ private fun TransportControls(
             ),
             type = if (playing) TransportIcon.Pause else TransportIcon.Play,
             action = if (playing) PlayerAction.Pause else PlayerAction.Play,
-            enabled = if (playing) controls.pause else controls.play,
-            pending = pendingAction == if (playing) PlayerAction.Pause else PlayerAction.Play,
+            enabled = available && (if (playing) controls.pause else controls.play),
+            pending = pendingAction == PlayerAction.Pause || pendingAction == PlayerAction.Play,
             primary = true,
             onClick = onAction,
         )
@@ -912,7 +939,7 @@ private fun TransportControls(
             label = stringResource(R.string.player_next),
             type = TransportIcon.Next,
             action = PlayerAction.Next,
-            enabled = controls.next,
+            enabled = controls.next && available,
             pending = pendingAction == PlayerAction.Next,
             onClick = onAction,
         )
@@ -931,6 +958,7 @@ private fun TransportButton(
 ) {
     val colors = LocalProAudioColors.current
     val size = if (primary) 62.dp else 48.dp
+    val pendingDescription = stringResource(R.string.player_command_pending)
     val background = if (primary) {
         Brush.linearGradient(listOf(Color(0xFFFF7843), colors.accentStrong))
     } else {
@@ -945,6 +973,10 @@ private fun TransportButton(
             .semantics {
                 contentDescription = label
                 role = Role.Button
+                if (pending) {
+                    stateDescription = pendingDescription
+                    liveRegion = LiveRegionMode.Polite
+                }
             },
         shape = RoundedCornerShape(if (primary) 14.dp else 12.dp),
         color = Color.Transparent,
@@ -958,11 +990,19 @@ private fun TransportButton(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            TransportGlyph(
-                type = type,
-                color = if (primary) Color.White else colors.textSoft,
-                modifier = Modifier.size(if (primary) 28.dp else 21.dp),
-            )
+            if (pending) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(if (primary) 28.dp else 21.dp),
+                    color = if (primary) Color.White else colors.accent,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                TransportGlyph(
+                    type = type,
+                    color = if (primary) Color.White else colors.textSoft,
+                    modifier = Modifier.size(if (primary) 28.dp else 21.dp),
+                )
+            }
         }
     }
 }

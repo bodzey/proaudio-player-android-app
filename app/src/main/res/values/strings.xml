@@ -245,4 +245,11 @@
         <item quantity="many">%1$d мережевих адрес</item>
         <item quantity="other">%1$d мережевої адреси</item>
     </plurals>
+    <string name="devices_network_help">Якщо плеєр не з’являється, перевірте його живлення та підключення телефона і плеєра до однієї локальної мережі. Гостьовий Wi-Fi або VPN можуть заважати пошуку.</string>
+    <string name="player_command_pending">Виконуємо команду</string>
+    <string name="radio_search">Назва або жанр</string>
+    <string name="radio_clear_search">Очистити</string>
+    <string name="radio_search_count">Знайдено: %1$d із %2$d</string>
+    <string name="radio_no_results">Станцій за цим запитом не знайдено. Спробуйте іншу назву або очистіть пошук.</string>
+    <string name="alerts_drafts_retained">Є незбережені зміни. Можна перейти в інший розділ і повернутися до них. Збережіть налаштування, щоб застосувати їх до плеєра.</string>
 </resources>

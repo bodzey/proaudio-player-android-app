@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,7 +38,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -60,18 +63,21 @@ fun LazyListScope.radioSection(
     onRefresh: () -> Unit,
     onStationToggle: (RadioStation) -> Unit,
     onCustomUrlChange: (String) -> Unit,
+    onQueryChange: (String) -> Unit,
     onPlayCustom: () -> Unit,
 ) {
     val activeUrl = activeRadioStreamUrl(connected.status)
     val blocked = connected.status.priority.blocking
     val streamsSupported = PlayerFeature.NETWORK_STREAMS in connected.capabilities.features
     val interactionEnabled = streamsSupported && !blocked && state.pendingUrl == null
+    val filteredStations = filterRadioStations(state.stations, state.query)
 
     item(key = "radio-header") {
         RadioHeader(
             active = activeUrl != null,
             stationCount = state.stations.size,
             loading = state.loading,
+            busy = state.pendingUrl != null,
             onRefresh = onRefresh,
         )
     }
@@ -109,6 +115,27 @@ fun LazyListScope.radioSection(
     }
 
     if (state.stations.isNotEmpty()) {
+        item(key = "radio-search") {
+            RadioSearch(
+                query = state.query,
+                foundCount = filteredStations.size,
+                totalCount = state.stations.size,
+                onQueryChange = onQueryChange,
+            )
+        }
+
+        if (filteredStations.isEmpty()) {
+            item(key = "radio-no-results") {
+                RadioNotice(text = stringResource(R.string.radio_no_results), error = false)
+            }
+        }
+
+        state.feedback?.takeUnless { state.feedbackIsCustom }?.let { feedback ->
+            item(key = "radio-catalog-feedback") {
+                RadioNotice(text = feedback.message, error = feedback.isError)
+            }
+        }
+
         item(key = "radio-catalog-label") {
             Column(
                 modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
@@ -124,7 +151,7 @@ fun LazyListScope.radioSection(
         }
 
         items(
-            items = state.stations,
+            items = filteredStations,
             key = { station -> station.id },
             contentType = { "radio-station" },
         ) { station ->
@@ -149,7 +176,7 @@ fun LazyListScope.radioSection(
         )
     }
 
-    state.feedback?.let { feedback ->
+    state.feedback?.takeIf { state.feedbackIsCustom || state.stations.isEmpty() }?.let { feedback ->
         item(key = "radio-feedback") {
             RadioNotice(
                 text = feedback.message,
@@ -160,10 +187,53 @@ fun LazyListScope.radioSection(
 }
 
 @Composable
+private fun RadioSearch(
+    query: String,
+    foundCount: Int,
+    totalCount: Int,
+    onQueryChange: (String) -> Unit,
+) {
+    val colors = LocalProAudioColors.current
+    val focusManager = LocalFocusManager.current
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.radio_search)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    TextButton(onClick = { onQueryChange("") }) {
+                        Text(stringResource(R.string.radio_clear_search))
+                    }
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = colors.text,
+                unfocusedTextColor = colors.text,
+                focusedBorderColor = colors.accent,
+                unfocusedBorderColor = colors.border,
+                cursorColor = colors.accent,
+            ),
+        )
+        Text(
+            text = stringResource(R.string.radio_search_count, foundCount, totalCount),
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            color = colors.textMuted,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+@Composable
 private fun RadioHeader(
     active: Boolean,
     stationCount: Int,
     loading: Boolean,
+    busy: Boolean,
     onRefresh: () -> Unit,
 ) {
     val colors = LocalProAudioColors.current
@@ -237,7 +307,7 @@ private fun RadioHeader(
 
                 OutlinedButton(
                     onClick = onRefresh,
-                    enabled = !loading,
+                    enabled = !loading && !busy,
                 ) {
                     Text(
                         text = stringResource(
@@ -561,7 +631,9 @@ private fun RadioNotice(
     val accent = if (error) colors.danger else colors.success
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { liveRegion = LiveRegionMode.Polite },
         shape = RoundedCornerShape(12.dp),
         color = accent.copy(alpha = 0.06f),
         border = androidx.compose.foundation.BorderStroke(

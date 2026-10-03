@@ -16,4 +16,6 @@ data class RadioUiState(
     val pendingUrl: String? = null,
     val customUrl: String = "",
     val feedback: RadioFeedback? = null,
+    val query: String = "",
+    val feedbackIsCustom: Boolean = false,
 )

@@ -226,6 +226,11 @@ private fun EmptyDevicesState() {
                 color = colors.textMuted,
                 style = MaterialTheme.typography.bodyMedium,
             )
+            Text(
+                text = stringResource(R.string.devices_network_help),
+                color = colors.textSoft,
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
 }

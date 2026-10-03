@@ -50,6 +50,15 @@ fun LazyListScope.alertsSection(
         }
     }
 
+    if (state.providerDirty || state.audioDirty) {
+        item(key = "alerts-drafts") {
+            AlertNotice(
+                text = stringResource(R.string.alerts_drafts_retained),
+                error = false,
+            )
+        }
+    }
+
     if (state.loading &&
         state.provider == null &&
         state.audio == null &&

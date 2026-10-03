@@ -27,6 +27,7 @@ class RadioViewModel(
     private val _uiState = MutableStateFlow(
         RadioUiState(
             deviceId = sessionRepository.selectedDeviceId.value,
+            query = savedStateHandle.get<String>(KEY_QUERY).orEmpty(),
             customUrl = sessionRepository.selectedDeviceId.value
                 ?.let(::restoredUrlFor)
                 .orEmpty(),
@@ -37,6 +38,8 @@ class RadioViewModel(
     fun ensureLoaded(force: Boolean = false) {
         val deviceId = sessionRepository.selectedDeviceId.value ?: return
         val current = _uiState.value
+
+        if (current.deviceId == deviceId && (current.loading || current.pendingUrl != null)) return
 
         if (!force &&
             current.deviceId == deviceId &&
@@ -104,7 +107,14 @@ class RadioViewModel(
         persistCustomUrl(deviceId, value)
     }
 
+    fun setQuery(value: String) {
+        _uiState.value = _uiState.value.copy(query = value)
+        savedStateHandle[KEY_QUERY] = value
+    }
+
     fun toggleStation(station: RadioStation) {
+        if (_uiState.value.pendingUrl != null) return
+        _uiState.value = _uiState.value.copy(feedbackIsCustom = false)
         val connected = connectedState() ?: return
         if (!canStartPlayback(connected)) return
         if (_uiState.value.pendingUrl != null) return
@@ -132,6 +142,8 @@ class RadioViewModel(
     }
 
     fun playCustomStream() {
+        if (_uiState.value.pendingUrl != null) return
+        _uiState.value = _uiState.value.copy(feedbackIsCustom = true)
         val connected = connectedState() ?: return
         if (!canStartPlayback(connected)) return
         if (_uiState.value.pendingUrl != null) return
@@ -266,6 +278,7 @@ class RadioViewModel(
 
     companion object {
         private const val KEY_CUSTOM_URL = "radio_custom_url"
+        private const val KEY_QUERY = "radio_query"
         private const val KEY_CUSTOM_URL_DEVICE_ID = "radio_custom_url_device_id"
 
         fun factory(

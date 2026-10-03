@@ -210,6 +210,7 @@ fun ProAudioPlayerApp(
             onRadioRefresh = radioViewModel::refresh,
             onRadioStationToggle = radioViewModel::toggleStation,
             onRadioCustomUrlChange = radioViewModel::setCustomUrl,
+            onRadioQueryChange = radioViewModel::setQuery,
             onRadioPlayCustom = radioViewModel::playCustomStream,
             onAlertsRefresh = alertsViewModel::refresh,
             onAlertProviderFormChange = alertsViewModel::updateProviderForm,
